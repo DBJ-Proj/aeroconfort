@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>AéroConfort</title>
+  <meta name="description" content="Assistant d'aération : quand ouvrir ou fermer vos fenêtres." />
+  <meta name="theme-color" content="#1b6f5c" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="icons/icon-192.png" />
+  <link rel="icon" href="icons/icon-192.png" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <header class="app-header">
+    <h1>AéroConfort</h1>
+    <p id="location-label" class="location-label">Localisation…</p>
+  </header>
+
+  <main>
+    <!-- Écran 1 : saisie -->
+    <section id="screen-input" class="screen" aria-labelledby="screen-input-title">
+      <h2 id="screen-input-title" class="sr-only">Saisie</h2>
+
+      <div id="location-picker" class="card" hidden>
+        <p>Impossible d'obtenir votre position automatiquement.</p>
+        <label for="city-search">Rechercher une ville</label>
+        <input type="text" id="city-search" placeholder="Ex : Poussan" autocomplete="off" />
+        <ul id="city-results" class="city-results"></ul>
+      </div>
+
+      <div class="card">
+        <h3>🏠 Intérieur</h3>
+        <div class="field-row">
+          <label for="indoor-temp">Température (°C)</label>
+          <input type="text" id="indoor-temp" inputmode="decimal" pattern="[0-9]*[.,]?[0-9]*" placeholder="ex : 28,5" />
+        </div>
+        <div class="field-row">
+          <label for="indoor-humidity">Humidité (%)</label>
+          <input type="text" id="indoor-humidity" inputmode="decimal" pattern="[0-9]*[.,]?[0-9]*" placeholder="ex : 45" />
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>☀️ Extérieur</h3>
+        <div id="outdoor-weather" class="outdoor-weather" aria-live="polite">
+          <p class="muted">Récupération de la météo…</p>
+        </div>
+        <button id="refresh-weather" class="btn-secondary" type="button">Actualiser la météo</button>
+      </div>
+
+      <button id="analyze-btn" class="btn-primary" type="button" disabled>Analyser</button>
+      <p id="input-error" class="error-message" role="alert" hidden></p>
+    </section>
+
+    <!-- Écran 2 : résultat -->
+    <section id="screen-result" class="screen" hidden aria-labelledby="screen-result-title">
+      <h2 id="screen-result-title" class="sr-only">Résultat</h2>
+
+      <div id="decision-card" class="card decision-card">
+        <p id="decision-status" class="decision-status">—</p>
+        <div class="decision-metrics">
+          <div>
+            <span class="metric-label">Indice de confort</span>
+            <span id="decision-score" class="metric-value">—</span>
+          </div>
+          <div id="duration-block">
+            <span class="metric-label">Durée idéale</span>
+            <span id="decision-duration" class="metric-value">—</span>
+          </div>
+        </div>
+        <p class="metric-label">Confiance : <span id="decision-confidence">—</span></p>
+
+        <h4>Pourquoi ?</h4>
+        <ul id="decision-reasons" class="reasons-list"></ul>
+
+        <p id="forecast-advice" class="forecast-advice" hidden></p>
+      </div>
+
+      <div class="mode-toggle">
+        <label for="expert-toggle">
+          <input type="checkbox" id="expert-toggle" />
+          Mode Expert
+        </label>
+      </div>
+
+      <div id="expert-panel" class="card expert-panel" hidden>
+        <dl class="expert-grid">
+          <dt>Humidité absolue intérieure</dt><dd id="expert-ah-in">—</dd>
+          <dt>Humidité absolue extérieure</dt><dd id="expert-ah-out">—</dd>
+          <dt>Gain d'humidité absolue</dt><dd id="expert-ah-gain">—</dd>
+          <dt>Point de rosée intérieur</dt><dd id="expert-dp-in">—</dd>
+          <dt>Point de rosée extérieur</dt><dd id="expert-dp-out">—</dd>
+          <dt>Humidex extérieur</dt><dd id="expert-humidex">—</dd>
+          <dt>Écart thermique</dt><dd id="expert-thermal-gap">—</dd>
+          <dt>Écart hygrométrique</dt><dd id="expert-hygro-gap">—</dd>
+          <dt>Renouvellement d'air estimé</dt><dd id="expert-renewal">—</dd>
+          <dt>Risque de réchauffement des parois</dt><dd id="expert-wall-risk">—</dd>
+        </dl>
+        <p class="muted expert-note">Estimations indicatives, sans mesure de volume ni d'exposition réelle du logement.</p>
+      </div>
+
+      <div class="action-row">
+        <button id="back-to-input-btn" class="btn-secondary" type="button">Retour</button>
+        <button id="opened-btn" class="btn-primary" type="button">J'ai ouvert</button>
+      </div>
+    </section>
+
+    <!-- Écran 3 : aération en cours -->
+    <section id="screen-timer" class="screen" hidden aria-labelledby="screen-timer-title">
+      <h2 id="screen-timer-title" class="sr-only">Aération en cours</h2>
+
+      <div class="card timer-card">
+        <p class="timer-label">Aération en cours</p>
+        <p id="timer-elapsed" class="timer-elapsed">00:00</p>
+        <p id="timer-status" class="timer-status">Continuez</p>
+        <p id="timer-remaining" class="muted">—</p>
+      </div>
+
+      <button id="closed-btn" class="btn-primary" type="button">J'ai fermé</button>
+    </section>
+  </main>
+
+  <script src="js/psychrometrics.js"></script>
+  <script src="js/decision.js"></script>
+  <script src="js/weather.js"></script>
+  <script src="js/storage.js"></script>
+  <script src="js/timer.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
