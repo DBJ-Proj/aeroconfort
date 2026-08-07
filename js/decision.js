@@ -33,6 +33,14 @@
     ORIENTATION_COEFF_FULL: 1,
     ORIENTATION_COEFF_PARTIAL: 0.5,
     ORIENTATION_COEFF_LOW: 0.3, // vent de dos / parallèle à la façade
+
+    // Facteur d'inertie thermique : l'air seul s'équilibre vite avec l'extérieur,
+    // mais la température ressentie de la pièce est freinée par les murs, le sol
+    // et les meubles qui ont emmagasiné de la chaleur. Calé sur une observation
+    // réelle (30,9°C → 29,5°C en 5h30) qui indiquait un temps de refroidissement
+    // ~100x plus lent que l'air seul. Valeur approximative, à réajuster si
+    // d'autres observations réelles s'en écartent nettement.
+    THERMAL_MASS_FACTOR: 100,
   };
 
   const COMPASS_DEGREES = { N: 0, NE: 45, E: 90, SE: 135, S: 180, SO: 225, O: 270, NO: 315 };
@@ -78,13 +86,33 @@
     return qM3s * 3600;
   }
 
-  // Décroissance exponentielle standard : après tau = V/Q heures, ~63% de
-  // l'écart avec la cible est comblé. Estimation "air seul", sans l'inertie
-  // thermique des murs/meubles (volontairement simplifié).
-  function projectRoomTemp(startTemp, targetTemp, hours, volume, airflowM3h) {
-    if (airflowM3h <= 0) return startTemp;
-    const tau = volume / airflowM3h;
+  // Décroissance exponentielle standard : après tau heures, ~63% de l'écart
+  // avec la cible est comblé. Si la pièce a un tau étalonné (mesure réelle,
+  // cf. computeCalibration), il prime sur l'estimation générique
+  // volume/débit × facteur d'inertie thermique.
+  function projectRoomTemp(startTemp, targetTemp, hours, volume, airflowM3h, calibratedTauHours) {
+    let tau = calibratedTauHours;
+    if (!tau) {
+      if (airflowM3h <= 0) return startTemp;
+      tau = (volume * CONSTANTS.THERMAL_MASS_FACTOR) / airflowM3h;
+    }
     return targetTemp + (startTemp - targetTemp) * Math.exp(-hours / tau);
+  }
+
+  // À partir d'une mesure réelle (température intérieure de départ/arrivée,
+  // température extérieure moyenne estimée sur la période, durée écoulée),
+  // déduit le temps caractéristique tau (h) de LA pièce mesurée. Retourne
+  // null si les données ne permettent pas un calcul cohérent (écart nul ou
+  // qui se serait creusé au lieu de se réduire).
+  function computeCalibration(startTemp, endTemp, outdoorAvg, durationHours) {
+    const deltaInitial = startTemp - outdoorAvg;
+    const deltaFinal = endTemp - outdoorAvg;
+    if (durationHours <= 0 || deltaInitial <= 0 || deltaFinal <= 0 || deltaFinal >= deltaInitial) {
+      return null;
+    }
+    const fraction = deltaFinal / deltaInitial;
+    const tauHours = -durationHours / Math.log(fraction);
+    return { tauHours };
   }
 
   function computeReasons(deltaT, deltaAH, outdoor) {
@@ -205,16 +233,17 @@
   function computeCoolingEstimate(indoor, outdoor, room, durationMinutes) {
     if (!room || !durationMinutes) return null;
     const airflow = computeAirflow(outdoor, room);
-    if (airflow <= 0) return null;
-    const finalTemp = projectRoomTemp(indoor.temp, outdoor.temp, durationMinutes / 60, computeRoomVolume(room), airflow);
+    if (!room.calibratedTauHours && airflow <= 0) return null;
+    const finalTemp = projectRoomTemp(indoor.temp, outdoor.temp, durationMinutes / 60, computeRoomVolume(room), airflow, room.calibratedTauHours);
     return { finalTemp };
   }
 
   // Fenêtre de rafraîchissement nocturne : simule heure par heure la
   // température de la pièce à partir des prévisions, pour trouver quand
   // ouvrir (l'extérieur passe sous la température intérieure) et quand
-  // fermer (l'extérieur repasse au-dessus de la température de la pièce à CE
-  // moment-là, pas de la température de départ). Nécessite "Ma pièce".
+  // fermer. La fermeture recommandée est la DERNIÈRE heure encore favorable
+  // (pas la première heure défavorable) : on ferme avant que ça se dégrade,
+  // pas pendant. Nécessite "Ma pièce".
   function computeNightCooling(indoor, hourlyOutdoor, room) {
     if (!room || !hourlyOutdoor || !hourlyOutdoor.length) return null;
     const volume = computeRoomVolume(room);
@@ -222,22 +251,32 @@
     if (openIndex === -1) return null;
 
     let roomTemp = indoor.temp;
-    let closeIndex = hourlyOutdoor.length - 1;
-    for (let i = openIndex; i < hourlyOutdoor.length; i++) {
+    let closeIndex = openIndex;
+    for (let i = openIndex; i < hourlyOutdoor.length - 1; i++) {
       const point = hourlyOutdoor[i];
-      if (i > openIndex && point.temp >= roomTemp) {
+      const nextPoint = hourlyOutdoor[i + 1];
+      const nextRoomTemp = projectRoomTemp(roomTemp, point.temp, 1, volume, computeAirflow(point, room), room.calibratedTauHours);
+      if (nextPoint.temp >= nextRoomTemp) {
         closeIndex = i;
         break;
       }
-      roomTemp = projectRoomTemp(roomTemp, point.temp, 1, volume, computeAirflow(point, room));
+      roomTemp = nextRoomTemp;
+      closeIndex = i + 1;
     }
 
     return {
       openTime: hourlyOutdoor[openIndex].time,
       closeTime: hourlyOutdoor[closeIndex].time,
       finalTemp: roomTemp,
+      // Prévisions heure par heure de maintenant (index 0) jusqu'à la fermeture,
+      // +1 heure supplémentaire pour constater que celle-ci est bien défavorable.
+      hourlyPoints: hourlyOutdoor.slice(0, closeIndex + 2).map((p) => ({
+        time: p.time,
+        temp: p.temp,
+        humidity: p.humidity,
+      })),
     };
   }
 
-  global.Decision = { computeDecision, computeForecastAdvice, computeCoolingEstimate, computeNightCooling, CONSTANTS };
+  global.Decision = { computeDecision, computeForecastAdvice, computeCoolingEstimate, computeNightCooling, computeCalibration, CONSTANTS };
 })(window);

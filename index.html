@@ -127,8 +127,12 @@
             <div>
               <p class="room-title">Ma pièce</p>
               <p id="room-summary-text" class="muted">Non configurée</p>
+              <p id="room-calibration-text" class="muted"></p>
             </div>
-            <button id="room-edit-btn" class="link-btn" type="button">Configurer</button>
+            <div class="room-summary-actions">
+              <button id="room-edit-btn" class="link-btn" type="button">Configurer</button>
+              <button id="room-calibrate-btn" class="link-btn" type="button">Calibrer</button>
+            </div>
           </div>
           <div id="room-form" hidden>
             <div class="field-row">
@@ -159,11 +163,43 @@
               <button id="room-save-btn" class="btn-primary" type="button">Enregistrer</button>
             </div>
           </div>
+
+          <div id="calibration-form" hidden>
+            <p class="muted">Une mesure réelle (température intérieure avant/après une période fenêtre ouverte) affine le calcul de refroidissement pour cette pièce précise. La météo extérieure réelle de la période est récupérée automatiquement.</p>
+            <div class="field-row">
+              <label for="calib-start-temp">Intérieur au départ (°C)</label>
+              <input type="text" id="calib-start-temp" inputmode="decimal" pattern="[0-9]*[.,]?[0-9]*" placeholder="ex : 30,9" />
+            </div>
+            <div class="field-row">
+              <label for="calib-end-temp">Intérieur à l'arrivée (°C)</label>
+              <input type="text" id="calib-end-temp" inputmode="decimal" pattern="[0-9]*[.,]?[0-9]*" placeholder="ex : 29,5" />
+            </div>
+            <div class="field-row stacked">
+              <label for="calib-start-time">Heure de début</label>
+              <input type="datetime-local" id="calib-start-time" />
+            </div>
+            <div class="field-row stacked">
+              <label for="calib-end-time">Heure de fin</label>
+              <input type="datetime-local" id="calib-end-time" />
+            </div>
+            <p id="calibration-error" class="error-message" role="alert" hidden></p>
+            <div class="action-row">
+              <button id="calibration-cancel-btn" class="btn-secondary" type="button">Annuler</button>
+              <button id="calibration-save-btn" class="btn-primary" type="button">Calculer et enregistrer</button>
+            </div>
+            <button id="calibration-clear-btn" class="link-btn" type="button" hidden>Effacer l'étalonnage</button>
+          </div>
         </div>
 
         <div id="night-cooling-card" class="card night-cooling-card">
           <h4>🌙 Rafraîchissement nocturne</h4>
           <p id="night-cooling-text" class="muted">Configurez "Ma pièce" pour activer cette estimation.</p>
+          <table id="night-forecast-table" class="night-forecast-table" hidden>
+            <thead>
+              <tr><th>Heure</th><th>Température</th><th>Humidité</th></tr>
+            </thead>
+            <tbody id="night-forecast-body"></tbody>
+          </table>
         </div>
       </div>
 

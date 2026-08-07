@@ -101,5 +101,32 @@
     return { current, hourly };
   }
 
-  global.Weather = { getCurrentPosition, searchCity, reverseGeocode, fetchWeather, degreesToCompass };
+  // Température extérieure réelle moyenne sur une période passée [startMs, endMs],
+  // via le paramètre `past_days` de l'API prévisions (couvre jusqu'à 92 jours en
+  // arrière, sans le délai de plusieurs jours de l'API archives classique).
+  async function fetchHistoricalAverageTemp(latitude, longitude, startMs, endMs) {
+    const pastDays = Math.min(92, Math.max(1, Math.ceil((Date.now() - startMs) / (24 * 3600 * 1000)) + 1));
+    const params = new URLSearchParams({
+      latitude,
+      longitude,
+      hourly: 'temperature_2m',
+      past_days: String(pastDays),
+      forecast_days: '1',
+      timezone: 'auto',
+    });
+    const response = await fetch(`${FORECAST_URL}?${params.toString()}`);
+    if (!response.ok) throw new Error('Météo passée indisponible.');
+    const data = await response.json();
+    const times = data.hourly.time;
+    const temps = data.hourly.temperature_2m;
+    const values = [];
+    for (let i = 0; i < times.length; i++) {
+      const t = Date.parse(times[i]);
+      if (t >= startMs && t <= endMs) values.push(temps[i]);
+    }
+    if (!values.length) throw new Error('Pas de données météo pour cette période.');
+    return values.reduce((sum, v) => sum + v, 0) / values.length;
+  }
+
+  global.Weather = { getCurrentPosition, searchCity, reverseGeocode, fetchWeather, fetchHistoricalAverageTemp, degreesToCompass };
 })(window);

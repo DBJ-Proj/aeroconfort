@@ -38,6 +38,7 @@
     openedBtn: document.getElementById('opened-btn'),
 
     roomSummaryText: document.getElementById('room-summary-text'),
+    roomCalibrationText: document.getElementById('room-calibration-text'),
     roomEditBtn: document.getElementById('room-edit-btn'),
     roomForm: document.getElementById('room-form'),
     roomSurface: document.getElementById('room-surface'),
@@ -46,6 +47,19 @@
     roomCrossVent: document.getElementById('room-cross-vent'),
     roomCancelBtn: document.getElementById('room-cancel-btn'),
     roomSaveBtn: document.getElementById('room-save-btn'),
+    nightForecastTable: document.getElementById('night-forecast-table'),
+    nightForecastBody: document.getElementById('night-forecast-body'),
+
+    roomCalibrateBtn: document.getElementById('room-calibrate-btn'),
+    calibrationForm: document.getElementById('calibration-form'),
+    calibStartTemp: document.getElementById('calib-start-temp'),
+    calibEndTemp: document.getElementById('calib-end-temp'),
+    calibStartTime: document.getElementById('calib-start-time'),
+    calibEndTime: document.getElementById('calib-end-time'),
+    calibrationError: document.getElementById('calibration-error'),
+    calibrationCancelBtn: document.getElementById('calibration-cancel-btn'),
+    calibrationSaveBtn: document.getElementById('calibration-save-btn'),
+    calibrationClearBtn: document.getElementById('calibration-clear-btn'),
 
     tabButtons: document.querySelectorAll('.tab-btn'),
     tabPanels: { air: document.getElementById('tab-air'), cooling: document.getElementById('tab-cooling') },
@@ -295,9 +309,17 @@
   function renderRoomSummary() {
     els.roomSummaryText.textContent = formatRoomSummary(currentRoom);
     els.roomEditBtn.textContent = currentRoom ? 'Modifier' : 'Configurer';
+    if (!currentRoom) {
+      els.roomCalibrationText.textContent = '';
+    } else if (currentRoom.calibratedTauHours) {
+      els.roomCalibrationText.textContent = `Étalonnage réel appliqué (refroidit sur ~${round(currentRoom.calibratedTauHours, 1)} h).`;
+    } else {
+      els.roomCalibrationText.textContent = 'Estimation générique (pas encore calibrée avec une mesure réelle).';
+    }
   }
 
   function openRoomForm() {
+    closeCalibrationForm();
     els.roomSurface.value = currentRoom ? currentRoom.surface : '';
     els.roomHeight.value = currentRoom ? currentRoom.ceilingHeight : '';
     els.roomCrossVent.checked = !!(currentRoom && currentRoom.crossVentilation);
@@ -333,10 +355,83 @@
       ceilingHeight: height,
       orientation: selectedBtn.dataset.dir,
       crossVentilation: els.roomCrossVent.checked,
+      calibratedTauHours: currentRoom ? currentRoom.calibratedTauHours : undefined,
     };
     window.Storage.saveRoom(currentRoom);
     renderRoomSummary();
     closeRoomForm();
+  });
+
+  // --- Calibration (mesure réelle) ---------------------------------------------------
+
+  function openCalibrationForm() {
+    closeRoomForm();
+    els.calibStartTemp.value = '';
+    els.calibEndTemp.value = '';
+    els.calibStartTime.value = '';
+    els.calibEndTime.value = '';
+    els.calibrationError.hidden = true;
+    els.calibrationClearBtn.hidden = !(currentRoom && currentRoom.calibratedTauHours);
+    els.calibrationForm.hidden = false;
+  }
+
+  function closeCalibrationForm() {
+    els.calibrationForm.hidden = true;
+  }
+
+  els.roomCalibrateBtn.addEventListener('click', openCalibrationForm);
+  els.calibrationCancelBtn.addEventListener('click', closeCalibrationForm);
+
+  function showCalibrationError(message) {
+    els.calibrationError.textContent = message;
+    els.calibrationError.hidden = false;
+  }
+
+  els.calibrationSaveBtn.addEventListener('click', async () => {
+    if (!currentRoom || !currentLocation) return;
+    const startTemp = parseDecimal(els.calibStartTemp.value);
+    const endTemp = parseDecimal(els.calibEndTemp.value);
+    const startMs = Date.parse(els.calibStartTime.value);
+    const endMs = Date.parse(els.calibEndTime.value);
+
+    if (!Number.isFinite(startTemp) || !Number.isFinite(endTemp) || !Number.isFinite(startMs) || !Number.isFinite(endMs)) {
+      showCalibrationError('Renseigne les 4 valeurs.');
+      return;
+    }
+    if (endMs <= startMs) {
+      showCalibrationError('L\'heure de fin doit être après l\'heure de début.');
+      return;
+    }
+
+    els.calibrationError.hidden = true;
+    els.calibrationSaveBtn.disabled = true;
+    els.calibrationSaveBtn.textContent = 'Récupération de la météo…';
+    try {
+      const outdoorAvg = await window.Weather.fetchHistoricalAverageTemp(currentLocation.latitude, currentLocation.longitude, startMs, endMs);
+      const durationHours = (endMs - startMs) / 3600000;
+      const result = window.Decision.computeCalibration(startTemp, endTemp, outdoorAvg, durationHours);
+      if (!result) {
+        showCalibrationError('Valeurs incohérentes : l\'intérieur doit se rapprocher de l\'extérieur (pas s\'en éloigner).');
+        return;
+      }
+      currentRoom.calibratedTauHours = result.tauHours;
+      window.Storage.saveRoom(currentRoom);
+      renderRoomSummary();
+      closeCalibrationForm();
+    } catch (err) {
+      showCalibrationError(err.message || 'Météo indisponible pour cette période.');
+    } finally {
+      els.calibrationSaveBtn.disabled = false;
+      els.calibrationSaveBtn.textContent = 'Calculer et enregistrer';
+    }
+  });
+
+  els.calibrationClearBtn.addEventListener('click', () => {
+    if (!currentRoom) return;
+    delete currentRoom.calibratedTauHours;
+    window.Storage.saveRoom(currentRoom);
+    renderRoomSummary();
+    closeCalibrationForm();
   });
 
   // --- Analyse / résultat ---------------------------------------------------
@@ -384,8 +479,18 @@
       document.getElementById('night-cooling-text').textContent = night
         ? `Ouvrez vers ${formatHHMM(night.openTime)}, fermez vers ${formatHHMM(night.closeTime)} → jusqu'à environ ${round(night.finalTemp, 1)}°C.`
         : 'Aucune fenêtre de rafraîchissement nocturne prévue sur les prochaines heures.';
+
+      if (night && night.hourlyPoints.length) {
+        els.nightForecastBody.innerHTML = night.hourlyPoints.map((p) =>
+          `<tr><td>${formatHHMM(p.time)}</td><td>${round(p.temp, 1)}°C</td><td>${round(p.humidity, 0)}%</td></tr>`
+        ).join('');
+        els.nightForecastTable.hidden = false;
+      } else {
+        els.nightForecastTable.hidden = true;
+      }
     } else {
       document.getElementById('night-cooling-text').textContent = 'Configurez "Ma pièce" pour activer cette estimation.';
+      els.nightForecastTable.hidden = true;
     }
 
     const e = decision.expert;

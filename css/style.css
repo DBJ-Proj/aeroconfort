@@ -159,6 +159,16 @@ main {
   font-size: 1rem;
 }
 
+.field-row.stacked {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+}
+
+.field-row.stacked input {
+  width: 100%;
+}
+
 #city-search { width: 100%; margin-top: 6px; }
 
 .city-results {
@@ -367,6 +377,30 @@ button {
   margin: 0 0 6px;
 }
 
+.night-forecast-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 12px;
+  font-size: 0.85rem;
+}
+
+.night-forecast-table th {
+  text-align: left;
+  color: var(--color-muted);
+  font-weight: 500;
+  padding: 4px 6px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.night-forecast-table td {
+  padding: 6px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.night-forecast-table tr:last-child td {
+  border-bottom: none;
+}
+
 .mode-toggle {
   display: flex;
   justify-content: center;
@@ -403,10 +437,24 @@ button {
   font-weight: 600;
 }
 
-#room-form {
+.room-summary-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+#room-form,
+#calibration-form {
   margin-top: 14px;
   padding-top: 14px;
   border-top: 1px solid var(--color-border);
+}
+
+#calibration-clear-btn {
+  display: block;
+  margin: 10px auto 0;
 }
 
 .room-orientation-label {
