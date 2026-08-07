@@ -6,6 +6,7 @@
   const KEYS = {
     LOCATION: 'aeroconfort.location',
     INDOOR: 'aeroconfort.indoor',
+    ROOM: 'aeroconfort.room',
   };
 
   function readJSON(key) {
@@ -41,5 +42,13 @@
     return readJSON(KEYS.INDOOR);
   }
 
-  global.Storage = { saveLocation, loadLocation, saveIndoor, loadIndoor };
+  function saveRoom(room) {
+    writeJSON(KEYS.ROOM, room);
+  }
+
+  function loadRoom() {
+    return readJSON(KEYS.ROOM);
+  }
+
+  global.Storage = { saveLocation, loadLocation, saveIndoor, loadIndoor, saveRoom, loadRoom };
 })(window);

@@ -4,9 +4,12 @@
 
   const els = {
     locationLabel: document.getElementById('location-label'),
+    changeLocationBtn: document.getElementById('change-location-btn'),
     locationPicker: document.getElementById('location-picker'),
+    locationPickerMessage: document.getElementById('location-picker-message'),
     citySearch: document.getElementById('city-search'),
     cityResults: document.getElementById('city-results'),
+    cancelLocationPickerBtn: document.getElementById('cancel-location-picker-btn'),
     indoorTemp: document.getElementById('indoor-temp'),
     indoorHumidity: document.getElementById('indoor-humidity'),
     outdoorWeather: document.getElementById('outdoor-weather'),
@@ -25,10 +28,27 @@
     decisionConfidence: document.getElementById('decision-confidence'),
     decisionReasons: document.getElementById('decision-reasons'),
     forecastAdvice: document.getElementById('forecast-advice'),
+    coolingEstimate: document.getElementById('cooling-estimate'),
+    scoreHelpBtn: document.getElementById('score-help-btn'),
+    scoreHelpDialog: document.getElementById('score-help-dialog'),
+    scoreHelpCloseBtn: document.getElementById('score-help-close-btn'),
     expertToggle: document.getElementById('expert-toggle'),
     expertPanel: document.getElementById('expert-panel'),
     backToInputBtn: document.getElementById('back-to-input-btn'),
     openedBtn: document.getElementById('opened-btn'),
+
+    roomSummaryText: document.getElementById('room-summary-text'),
+    roomEditBtn: document.getElementById('room-edit-btn'),
+    roomForm: document.getElementById('room-form'),
+    roomSurface: document.getElementById('room-surface'),
+    roomHeight: document.getElementById('room-height'),
+    roomOrientationGrid: document.getElementById('room-orientation-grid'),
+    roomCrossVent: document.getElementById('room-cross-vent'),
+    roomCancelBtn: document.getElementById('room-cancel-btn'),
+    roomSaveBtn: document.getElementById('room-save-btn'),
+
+    tabButtons: document.querySelectorAll('.tab-btn'),
+    tabPanels: { air: document.getElementById('tab-air'), cooling: document.getElementById('tab-cooling') },
 
     timerElapsed: document.getElementById('timer-elapsed'),
     timerStatus: document.getElementById('timer-status'),
@@ -48,6 +68,7 @@
   let currentOutdoor = null;
   let currentForecast = [];
   let currentDecision = null;
+  let currentRoom = window.Storage.loadRoom();
   let weatherLoadAttempted = false;
   const timer = window.AerationTimer();
 
@@ -56,6 +77,21 @@
       s.hidden = s.id !== id;
     });
   }
+
+  function showTab(key) {
+    els.tabButtons.forEach((btn) => {
+      const selected = btn.dataset.tab === key;
+      btn.classList.toggle('selected', selected);
+      btn.setAttribute('aria-selected', String(selected));
+    });
+    Object.entries(els.tabPanels).forEach(([panelKey, panel]) => {
+      panel.hidden = panelKey !== key;
+    });
+  }
+
+  els.tabButtons.forEach((btn) => {
+    btn.addEventListener('click', () => showTab(btn.dataset.tab));
+  });
 
   function round(value, decimals) {
     const factor = Math.pow(10, decimals);
@@ -104,14 +140,34 @@
     currentLocation = location;
     window.Storage.saveLocation(location);
     els.locationLabel.textContent = location.label;
-    els.locationPicker.hidden = true;
+    els.changeLocationBtn.hidden = false;
+    hideLocationPicker();
   }
 
-  function showLocationPicker() {
-    els.locationLabel.textContent = 'Position inconnue';
-    els.outdoorWeather.innerHTML = '<p class="muted">Recherchez votre ville pour obtenir la météo.</p>';
-    els.locationPicker.hidden = false;
+  function hideLocationPicker() {
+    els.locationPicker.hidden = true;
+    els.cityResults.innerHTML = '';
+    els.citySearch.value = '';
   }
+
+  // reason: 'auto-fail' (géolocalisation échouée, pas de position connue) ou 'manual' (l'utilisateur veut changer de ville).
+  function showLocationPicker(reason) {
+    if (reason === 'auto-fail') {
+      els.locationLabel.textContent = 'Position inconnue';
+      els.outdoorWeather.innerHTML = '<p class="muted">Recherchez votre ville pour obtenir la météo.</p>';
+      els.locationPickerMessage.textContent = 'Impossible d\'obtenir votre position automatiquement.';
+      els.cancelLocationPickerBtn.hidden = true;
+    } else {
+      els.locationPickerMessage.textContent = 'Recherchez une nouvelle ville.';
+      els.cancelLocationPickerBtn.hidden = !currentLocation;
+    }
+    els.changeLocationBtn.hidden = false;
+    els.locationPicker.hidden = false;
+    els.citySearch.focus();
+  }
+
+  els.changeLocationBtn.addEventListener('click', () => showLocationPicker('manual'));
+  els.cancelLocationPickerBtn.addEventListener('click', () => hideLocationPicker());
 
   let citySearchTimeout = null;
   els.citySearch.addEventListener('input', () => {
@@ -142,8 +198,6 @@
     if (!picked) return;
     const label = `${picked.name}${picked.admin1 ? ', ' + picked.admin1 : ''}`;
     setLocation({ latitude: picked.latitude, longitude: picked.longitude, label });
-    els.cityResults.innerHTML = '';
-    els.citySearch.value = '';
     loadWeather({ latitude: picked.latitude, longitude: picked.longitude });
   });
 
@@ -154,7 +208,14 @@
   async function initLocation() {
     try {
       const pos = await window.Weather.getCurrentPosition();
-      setLocation({ latitude: pos.latitude, longitude: pos.longitude, label: 'Position actuelle' });
+      let label = 'Position actuelle';
+      try {
+        const cityLabel = await window.Weather.reverseGeocode(pos.latitude, pos.longitude);
+        if (cityLabel) label = cityLabel;
+      } catch (err) {
+        // Nom de ville indisponible : on garde le libellé générique, la météo fonctionne quand même.
+      }
+      setLocation({ latitude: pos.latitude, longitude: pos.longitude, label });
       await loadWeather(currentLocation);
       return;
     } catch (err) {
@@ -165,7 +226,7 @@
       setLocation(saved);
       await loadWeather(saved);
     } else {
-      showLocationPicker();
+      showLocationPicker('auto-fail');
     }
   }
 
@@ -222,6 +283,62 @@
     }
   }
 
+  // --- Ma pièce ---------------------------------------------------
+
+  function formatRoomSummary(room) {
+    if (!room) return 'Non configurée';
+    const parts = [`${round(room.surface, 1)} m²`, `${round(room.ceilingHeight, 1)} m sous plafond`, `fenêtre ${room.orientation}`];
+    if (room.crossVentilation) parts.push('courant d\'air');
+    return parts.join(' · ');
+  }
+
+  function renderRoomSummary() {
+    els.roomSummaryText.textContent = formatRoomSummary(currentRoom);
+    els.roomEditBtn.textContent = currentRoom ? 'Modifier' : 'Configurer';
+  }
+
+  function openRoomForm() {
+    els.roomSurface.value = currentRoom ? currentRoom.surface : '';
+    els.roomHeight.value = currentRoom ? currentRoom.ceilingHeight : '';
+    els.roomCrossVent.checked = !!(currentRoom && currentRoom.crossVentilation);
+    els.roomOrientationGrid.querySelectorAll('button').forEach((btn) => {
+      btn.classList.toggle('selected', !!currentRoom && btn.dataset.dir === currentRoom.orientation);
+    });
+    els.roomForm.hidden = false;
+  }
+
+  function closeRoomForm() {
+    els.roomForm.hidden = true;
+  }
+
+  els.roomEditBtn.addEventListener('click', openRoomForm);
+  els.roomCancelBtn.addEventListener('click', closeRoomForm);
+
+  els.roomOrientationGrid.addEventListener('click', (event) => {
+    const btn = event.target.closest('button[data-dir]');
+    if (!btn) return;
+    els.roomOrientationGrid.querySelectorAll('button').forEach((b) => b.classList.remove('selected'));
+    btn.classList.add('selected');
+  });
+
+  els.roomSaveBtn.addEventListener('click', () => {
+    const surface = parseDecimal(els.roomSurface.value);
+    const height = parseDecimal(els.roomHeight.value);
+    const selectedBtn = els.roomOrientationGrid.querySelector('button.selected');
+    if (!Number.isFinite(surface) || surface <= 0 || !Number.isFinite(height) || height <= 0 || !selectedBtn) {
+      return;
+    }
+    currentRoom = {
+      surface,
+      ceilingHeight: height,
+      orientation: selectedBtn.dataset.dir,
+      crossVentilation: els.roomCrossVent.checked,
+    };
+    window.Storage.saveRoom(currentRoom);
+    renderRoomSummary();
+    closeRoomForm();
+  });
+
   // --- Analyse / résultat ---------------------------------------------------
 
   function renderDecision(decision) {
@@ -240,11 +357,35 @@
     if (decision.status === 'OUVRIR' || !currentOutdoor) {
       els.forecastAdvice.hidden = true;
     } else {
-      const advice = window.Decision.computeForecastAdvice(getIndoorValues(), currentForecast, Date.parse(currentOutdoor.time));
+      const advice = window.Decision.computeForecastAdvice(getIndoorValues(), currentForecast.slice(0, 3), Date.parse(currentOutdoor.time));
       els.forecastAdvice.hidden = false;
       els.forecastAdvice.textContent = advice
         ? `🔮 Ouverture possible vers ${formatHHMM(advice.time)} (${formatRelativeMinutes(advice.minutesFromNow)}), d'après les prévisions.`
         : `🔮 Pas d'amélioration prévue dans les prochaines heures d'après les prévisions actuelles.`;
+    }
+
+    if (currentRoom && decision.durationMinutes && currentOutdoor) {
+      const cooling = window.Decision.computeCoolingEstimate(getIndoorValues(), currentOutdoor, currentRoom, decision.durationMinutes);
+      els.coolingEstimate.hidden = !cooling;
+      if (cooling) {
+        document.getElementById('cooling-estimate-text').textContent =
+          `${round(getIndoorValues().temp, 1)}°C → ${round(cooling.finalTemp, 1)}°C en ${decision.durationMinutes} min`;
+      }
+    } else {
+      els.coolingEstimate.hidden = true;
+    }
+
+    if (currentRoom) {
+      // Les conditions actuelles comptent comme premier créneau possible : sans
+      // ça, si dehors est déjà plus frais maintenant, l'algorithme sauterait ce
+      // moment et ne proposerait qu'un créneau plus tard dans les prévisions.
+      const nightPoints = currentOutdoor ? [currentOutdoor, ...currentForecast] : currentForecast;
+      const night = window.Decision.computeNightCooling(getIndoorValues(), nightPoints, currentRoom);
+      document.getElementById('night-cooling-text').textContent = night
+        ? `Ouvrez vers ${formatHHMM(night.openTime)}, fermez vers ${formatHHMM(night.closeTime)} → jusqu'à environ ${round(night.finalTemp, 1)}°C.`
+        : 'Aucune fenêtre de rafraîchissement nocturne prévue sur les prochaines heures.';
+    } else {
+      document.getElementById('night-cooling-text').textContent = 'Configurez "Ma pièce" pour activer cette estimation.';
     }
 
     const e = decision.expert;
@@ -264,10 +405,17 @@
     if (!indoorValuesValid() || !currentOutdoor) return;
     currentDecision = window.Decision.computeDecision(getIndoorValues(), currentOutdoor);
     renderDecision(currentDecision);
+    showTab('air');
     showScreen('screen-result');
   });
 
   els.backToInputBtn.addEventListener('click', () => showScreen('screen-input'));
+
+  els.scoreHelpBtn.addEventListener('click', () => els.scoreHelpDialog.showModal());
+  els.scoreHelpCloseBtn.addEventListener('click', () => els.scoreHelpDialog.close());
+  els.scoreHelpDialog.addEventListener('click', (event) => {
+    if (event.target === els.scoreHelpDialog) els.scoreHelpDialog.close();
+  });
 
   els.expertToggle.addEventListener('change', () => {
     els.expertPanel.hidden = !els.expertToggle.checked;
@@ -314,6 +462,7 @@
   // --- Démarrage ---------------------------------------------------
 
   prefillIndoor();
+  renderRoomSummary();
   validateAndToggleAnalyze();
   initLocation();
 })();

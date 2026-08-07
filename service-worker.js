@@ -1,6 +1,6 @@
 // Cache-first pour l'app shell uniquement : les appels météo (autre origine)
 // passent toujours par le réseau, jamais par ce cache.
-const CACHE_NAME = 'aeroconfort-v3';
+const CACHE_NAME = 'aeroconfort-v8';
 const APP_SHELL = [
   './',
   './index.html',

@@ -56,10 +56,27 @@ body {
   color: var(--color-primary);
 }
 
+.location-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
 .location-label {
   margin: 0;
   color: var(--color-muted);
   font-size: 0.9rem;
+}
+
+.link-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--color-primary);
+  font-size: 0.85rem;
+  text-decoration: underline;
+  cursor: pointer;
 }
 
 main {
@@ -69,6 +86,40 @@ main {
   display: flex;
   flex-direction: column;
   gap: var(--spacing);
+}
+
+.screen,
+.tab-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing);
+}
+
+.screen[hidden],
+.tab-panel[hidden] {
+  display: none;
+}
+
+.tabs {
+  display: flex;
+  gap: 8px;
+}
+
+.tab-btn {
+  flex: 1;
+  width: auto;
+  padding: 10px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  background: var(--color-surface);
+  color: var(--color-muted);
+  border: 1px solid var(--color-border);
+}
+
+.tab-btn.selected {
+  background: var(--color-primary);
+  color: var(--color-primary-contrast);
+  border-color: var(--color-primary);
 }
 
 .card {
@@ -160,6 +211,7 @@ button {
 }
 
 .btn-primary {
+  width: 100%;
   background: var(--color-primary);
   color: var(--color-primary-contrast);
   font-weight: 600;
@@ -171,6 +223,7 @@ button {
 }
 
 .btn-secondary {
+  width: 100%;
   background: transparent;
   color: var(--color-primary);
   border: 1px solid var(--color-primary);
@@ -218,6 +271,67 @@ button {
   font-weight: 600;
 }
 
+.info-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  margin-left: 2px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: var(--color-border);
+  color: var(--color-muted);
+  font-size: 0.75rem;
+  line-height: 1;
+  cursor: pointer;
+  vertical-align: middle;
+}
+
+.help-dialog {
+  max-width: 420px;
+  width: calc(100% - 48px);
+  border: none;
+  border-radius: var(--radius);
+  padding: 20px;
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
+.help-dialog::backdrop {
+  background: rgba(0, 0, 0, 0.5);
+}
+
+.help-dialog h3 {
+  margin-top: 0;
+}
+
+.help-dialog ul {
+  padding-left: 20px;
+  margin: 8px 0;
+}
+
+.help-dialog li {
+  margin-bottom: 6px;
+}
+
+.help-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 8px 0;
+}
+
+.help-table td {
+  padding: 6px 8px;
+  border-top: 1px solid var(--color-border);
+}
+
+.help-dialog button {
+  width: 100%;
+  margin-top: 8px;
+}
+
 .reasons-list {
   text-align: left;
   margin: 8px 0 0;
@@ -232,6 +346,25 @@ button {
   color: var(--color-text);
   font-size: 0.9rem;
   text-align: left;
+}
+
+.cooling-estimate {
+  margin: 12px 0 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--color-bg);
+  color: var(--color-text);
+  text-align: left;
+}
+
+.cooling-estimate #cooling-estimate-text {
+  margin: 2px 0 0;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.night-cooling-card h4 {
+  margin: 0 0 6px;
 }
 
 .mode-toggle {
@@ -257,6 +390,58 @@ button {
 .expert-grid dd { margin: 0; text-align: right; font-weight: 600; }
 
 .expert-note { margin-top: 12px; }
+
+.room-summary {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.room-title {
+  margin: 0;
+  font-weight: 600;
+}
+
+#room-form {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--color-border);
+}
+
+.room-orientation-label {
+  margin: 10px 0 6px;
+}
+
+.compass-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.compass-grid button {
+  padding: 8px 0;
+  font-size: 0.85rem;
+  background: var(--color-bg);
+  color: var(--color-text);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+}
+
+.compass-grid button.selected {
+  background: var(--color-primary);
+  color: var(--color-primary-contrast);
+  border-color: var(--color-primary);
+}
+
+.checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.9rem;
+  margin-bottom: 14px;
+}
 
 .timer-card { text-align: center; }
 

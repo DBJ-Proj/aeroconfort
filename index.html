@@ -14,7 +14,10 @@
 <body>
   <header class="app-header">
     <h1>AéroConfort</h1>
-    <p id="location-label" class="location-label">Localisation…</p>
+    <div class="location-row">
+      <p id="location-label" class="location-label">Localisation…</p>
+      <button id="change-location-btn" class="link-btn" type="button" hidden>Changer de ville</button>
+    </div>
   </header>
 
   <main>
@@ -23,10 +26,11 @@
       <h2 id="screen-input-title" class="sr-only">Saisie</h2>
 
       <div id="location-picker" class="card" hidden>
-        <p>Impossible d'obtenir votre position automatiquement.</p>
-        <label for="city-search">Rechercher une ville</label>
+        <p id="location-picker-message" class="muted">Recherchez votre ville.</p>
+        <label for="city-search">Ville</label>
         <input type="text" id="city-search" placeholder="Ex : Poussan" autocomplete="off" />
         <ul id="city-results" class="city-results"></ul>
+        <button id="cancel-location-picker-btn" class="btn-secondary" type="button" hidden>Annuler</button>
       </div>
 
       <div class="card">
@@ -57,53 +61,113 @@
     <section id="screen-result" class="screen" hidden aria-labelledby="screen-result-title">
       <h2 id="screen-result-title" class="sr-only">Résultat</h2>
 
-      <div id="decision-card" class="card decision-card">
-        <p id="decision-status" class="decision-status">—</p>
-        <div class="decision-metrics">
-          <div>
-            <span class="metric-label">Indice de confort</span>
-            <span id="decision-score" class="metric-value">—</span>
+      <div class="tabs" role="tablist">
+        <button id="tab-btn-air" class="tab-btn selected" data-tab="air" role="tab" aria-selected="true" type="button">Renouvellement d'air</button>
+        <button id="tab-btn-cooling" class="tab-btn" data-tab="cooling" role="tab" aria-selected="false" type="button">Rafraîchissement</button>
+      </div>
+
+      <div id="tab-air" class="tab-panel" role="tabpanel">
+        <div id="decision-card" class="card decision-card">
+          <p id="decision-status" class="decision-status">—</p>
+          <div class="decision-metrics">
+            <div>
+              <span class="metric-label">
+                Indice de confort
+                <button id="score-help-btn" class="info-btn" type="button" aria-label="Comment ce score est calculé ?">ⓘ</button>
+              </span>
+              <span id="decision-score" class="metric-value">—</span>
+            </div>
+            <div id="duration-block">
+              <span class="metric-label">Durée idéale</span>
+              <span id="decision-duration" class="metric-value">—</span>
+            </div>
           </div>
-          <div id="duration-block">
-            <span class="metric-label">Durée idéale</span>
-            <span id="decision-duration" class="metric-value">—</span>
+          <p class="metric-label">Confiance : <span id="decision-confidence">—</span></p>
+
+          <h4>Pourquoi ?</h4>
+          <ul id="decision-reasons" class="reasons-list"></ul>
+
+          <p id="forecast-advice" class="forecast-advice" hidden></p>
+
+          <div id="cooling-estimate" class="cooling-estimate" hidden>
+            <p class="metric-label">Baisse estimée</p>
+            <p id="cooling-estimate-text">—</p>
           </div>
         </div>
-        <p class="metric-label">Confiance : <span id="decision-confidence">—</span></p>
 
-        <h4>Pourquoi ?</h4>
-        <ul id="decision-reasons" class="reasons-list"></ul>
+        <div class="mode-toggle">
+          <label for="expert-toggle">
+            <input type="checkbox" id="expert-toggle" />
+            Mode Expert
+          </label>
+        </div>
 
-        <p id="forecast-advice" class="forecast-advice" hidden></p>
-      </div>
+        <div id="expert-panel" class="card expert-panel" hidden>
+          <dl class="expert-grid">
+            <dt>Humidité absolue intérieure</dt><dd id="expert-ah-in">—</dd>
+            <dt>Humidité absolue extérieure</dt><dd id="expert-ah-out">—</dd>
+            <dt>Gain d'humidité absolue</dt><dd id="expert-ah-gain">—</dd>
+            <dt>Point de rosée intérieur</dt><dd id="expert-dp-in">—</dd>
+            <dt>Point de rosée extérieur</dt><dd id="expert-dp-out">—</dd>
+            <dt>Humidex extérieur</dt><dd id="expert-humidex">—</dd>
+            <dt>Écart thermique</dt><dd id="expert-thermal-gap">—</dd>
+            <dt>Écart hygrométrique</dt><dd id="expert-hygro-gap">—</dd>
+            <dt>Renouvellement d'air estimé</dt><dd id="expert-renewal">—</dd>
+            <dt>Risque de réchauffement des parois</dt><dd id="expert-wall-risk">—</dd>
+          </dl>
+          <p class="muted expert-note">Estimations indicatives, sans mesure de volume ni d'exposition réelle du logement.</p>
+        </div>
 
-      <div class="mode-toggle">
-        <label for="expert-toggle">
-          <input type="checkbox" id="expert-toggle" />
-          Mode Expert
-        </label>
-      </div>
-
-      <div id="expert-panel" class="card expert-panel" hidden>
-        <dl class="expert-grid">
-          <dt>Humidité absolue intérieure</dt><dd id="expert-ah-in">—</dd>
-          <dt>Humidité absolue extérieure</dt><dd id="expert-ah-out">—</dd>
-          <dt>Gain d'humidité absolue</dt><dd id="expert-ah-gain">—</dd>
-          <dt>Point de rosée intérieur</dt><dd id="expert-dp-in">—</dd>
-          <dt>Point de rosée extérieur</dt><dd id="expert-dp-out">—</dd>
-          <dt>Humidex extérieur</dt><dd id="expert-humidex">—</dd>
-          <dt>Écart thermique</dt><dd id="expert-thermal-gap">—</dd>
-          <dt>Écart hygrométrique</dt><dd id="expert-hygro-gap">—</dd>
-          <dt>Renouvellement d'air estimé</dt><dd id="expert-renewal">—</dd>
-          <dt>Risque de réchauffement des parois</dt><dd id="expert-wall-risk">—</dd>
-        </dl>
-        <p class="muted expert-note">Estimations indicatives, sans mesure de volume ni d'exposition réelle du logement.</p>
-      </div>
-
-      <div class="action-row">
-        <button id="back-to-input-btn" class="btn-secondary" type="button">Retour</button>
         <button id="opened-btn" class="btn-primary" type="button">J'ai ouvert</button>
       </div>
+
+      <div id="tab-cooling" class="tab-panel" role="tabpanel" hidden>
+        <div class="card room-card">
+          <div class="room-summary">
+            <div>
+              <p class="room-title">Ma pièce</p>
+              <p id="room-summary-text" class="muted">Non configurée</p>
+            </div>
+            <button id="room-edit-btn" class="link-btn" type="button">Configurer</button>
+          </div>
+          <div id="room-form" hidden>
+            <div class="field-row">
+              <label for="room-surface">Surface (m²)</label>
+              <input type="text" id="room-surface" inputmode="decimal" pattern="[0-9]*[.,]?[0-9]*" placeholder="ex : 20" />
+            </div>
+            <div class="field-row">
+              <label for="room-height">Hauteur de plafond (m)</label>
+              <input type="text" id="room-height" inputmode="decimal" pattern="[0-9]*[.,]?[0-9]*" placeholder="ex : 2,5" />
+            </div>
+            <p class="muted room-orientation-label">Orientation de la/les fenêtre(s)</p>
+            <div class="compass-grid" id="room-orientation-grid">
+              <button type="button" data-dir="N">N</button>
+              <button type="button" data-dir="NE">NE</button>
+              <button type="button" data-dir="E">E</button>
+              <button type="button" data-dir="SE">SE</button>
+              <button type="button" data-dir="S">S</button>
+              <button type="button" data-dir="SO">SO</button>
+              <button type="button" data-dir="O">O</button>
+              <button type="button" data-dir="NO">NO</button>
+            </div>
+            <label class="checkbox-row">
+              <input type="checkbox" id="room-cross-vent" />
+              Courant d'air (fenêtres en vis-à-vis)
+            </label>
+            <div class="action-row">
+              <button id="room-cancel-btn" class="btn-secondary" type="button">Annuler</button>
+              <button id="room-save-btn" class="btn-primary" type="button">Enregistrer</button>
+            </div>
+          </div>
+        </div>
+
+        <div id="night-cooling-card" class="card night-cooling-card">
+          <h4>🌙 Rafraîchissement nocturne</h4>
+          <p id="night-cooling-text" class="muted">Configurez "Ma pièce" pour activer cette estimation.</p>
+        </div>
+      </div>
+
+      <button id="back-to-input-btn" class="btn-secondary" type="button">Retour</button>
     </section>
 
     <!-- Écran 3 : aération en cours -->
@@ -120,6 +184,24 @@
       <button id="closed-btn" class="btn-primary" type="button">J'ai fermé</button>
     </section>
   </main>
+
+  <dialog id="score-help-dialog" class="help-dialog">
+    <h3>Comment est calculé l'indice ?</h3>
+    <p>Le score part de 50/100, puis varie selon 3 facteurs qui comparent l'intérieur et l'extérieur :</p>
+    <ul>
+      <li><strong>Température</strong> : +9 points par °C où l'extérieur est plus frais (retire des points s'il est plus chaud).</li>
+      <li><strong>Humidité absolue</strong> (g d'eau/m³, pas le %) : +5 points par g/m³ où l'extérieur est plus sec.</li>
+      <li><strong>Vent</strong> : +8 points entre 5 et 25 km/h (aide le renouvellement d'air) ; −6 points au-delà de 40 km/h (trop fort).</li>
+    </ul>
+    <p>Le total est plafonné entre 0 et 100 :</p>
+    <table class="help-table">
+      <tr><td>≥ 65</td><td>🟢 Ouvrir</td></tr>
+      <tr><td>40 à 64</td><td>🟡 Attendre</td></tr>
+      <tr><td>&lt; 40</td><td>🔴 Fermer</td></tr>
+    </table>
+    <p class="muted">La durée idéale varie de 5 à 45 min selon le score. La confiance reflète la distance aux seuils : proche d'un seuil, la recommandation pourrait basculer avec de petites variations.</p>
+    <button id="score-help-close-btn" class="btn-primary" type="button">Fermer</button>
+  </dialog>
 
   <script src="js/psychrometrics.js"></script>
   <script src="js/decision.js"></script>

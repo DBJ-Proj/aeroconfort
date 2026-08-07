@@ -13,7 +13,10 @@ Installer l'application).
 - Saisie de la température et de l'humidité intérieures.
 - Météo extérieure automatique (température, humidité, vent, rafales,
   direction) via [Open-Meteo](https://open-meteo.com/) — gratuit, sans clé API.
-- Géolocalisation automatique, avec recherche de ville en secours.
+- Géolocalisation automatique avec nom de ville affiché (géolocalisation
+  inverse via [BigDataCloud](https://www.bigdatacloud.com/geocoding-apis/free-reverse-geocode-to-city-api),
+  gratuit, sans clé API), et bouton "Changer de ville" toujours accessible
+  pour rechercher une autre localité (autocomplétion Open-Meteo).
 - Calculs : humidité absolue, point de rosée, humidex.
 - Décision 🟢 Ouvrir / 🟡 Attendre / 🔴 Fermer avec score, durée idéale et
   raisons expliquées.
@@ -22,6 +25,21 @@ Installer l'application).
 - Chronomètre d'aération avec suivi en temps réel.
 - Mode Expert : détail des calculs (humidités absolues, points de rosée,
   écarts, temps de renouvellement d'air estimé, confiance).
+- Profil "Ma pièce" (mode Expert, optionnel) : surface, hauteur de plafond,
+  orientation de la/les fenêtre(s), courant d'air. Une fois renseigné, il
+  affine le temps de renouvellement d'air (débit réel selon le vent et
+  l'orientation plutôt qu'une estimation générique) et débloque deux
+  informations sur l'écran principal :
+  - **Baisse estimée** : température atteignable en ouvrant pour la durée
+    idéale actuelle.
+  - **Rafraîchissement nocturne** : détecte, sur les prévisions à venir,
+    la fenêtre où l'extérieur reste durablement plus frais (typiquement la
+    nuit), et indique quand ouvrir et quand fermer avant que l'extérieur ne
+    redevienne plus chaud que la pièce.
+  Ces estimations utilisent un modèle physique simplifié (débit d'air par
+  règle empirique de ventilation naturelle, refroidissement par décroissance
+  exponentielle, sans inertie thermique des murs) — indicatif, pas une
+  simulation d'ingénierie.
 - Mode sombre automatique (suit les préférences système).
 - Installable en PWA (manifest + service worker).
 
@@ -66,3 +84,4 @@ conventions à respecter en cas d'évolution.
 ## Crédits
 
 Données météo : [Open-Meteo](https://open-meteo.com/) (CC BY 4.0).
+Géolocalisation inverse (nom de ville) : [BigDataCloud](https://www.bigdatacloud.com/).

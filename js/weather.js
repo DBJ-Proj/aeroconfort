@@ -5,8 +5,12 @@
 
   const FORECAST_URL = 'https://api.open-meteo.com/v1/forecast';
   const GEOCODING_URL = 'https://geocoding-api.open-meteo.com/v1/search';
+  const REVERSE_GEOCODING_URL = 'https://api.bigdatacloud.net/data/reverse-geocode-client';
   const COMPASS_POINTS = ['N', 'NE', 'E', 'SE', 'S', 'SO', 'O', 'NO'];
-  const FORECAST_HOURS = 3; // "prévision sur les 2 à 3 prochaines heures"
+  // Horizon de prévision récupéré une fois pour toutes les fonctionnalités qui en
+  // ont besoin : le message "prochain créneau favorable" n'utilise que les 3
+  // premières heures, le rafraîchissement nocturne utilise l'horizon complet.
+  const NIGHT_HOURS = 12;
 
   function getCurrentPosition() {
     return new Promise((resolve, reject) => {
@@ -36,6 +40,19 @@
     }));
   }
 
+  // Nom de ville à partir de coordonnées GPS (gratuit, sans clé, pensé pour un appel côté navigateur).
+  // https://www.bigdatacloud.com/geocoding-apis/free-reverse-geocode-to-city-api
+  async function reverseGeocode(latitude, longitude) {
+    const params = new URLSearchParams({ latitude, longitude, localityLanguage: 'fr' });
+    const response = await fetch(`${REVERSE_GEOCODING_URL}?${params.toString()}`);
+    if (!response.ok) throw new Error('Nom de ville indisponible.');
+    const data = await response.json();
+    const city = data.city || data.locality || '';
+    const region = data.principalSubdivision || '';
+    if (!city) return null;
+    return region && region !== city ? `${city}, ${region}` : city;
+  }
+
   function degreesToCompass(degrees) {
     const index = Math.round(degrees / 45) % 8;
     return COMPASS_POINTS[index];
@@ -46,7 +63,7 @@
       latitude,
       longitude,
       current: 'temperature_2m,relative_humidity_2m,wind_speed_10m,wind_gusts_10m,wind_direction_10m',
-      hourly: 'temperature_2m,relative_humidity_2m,wind_speed_10m,wind_gusts_10m',
+      hourly: 'temperature_2m,relative_humidity_2m,wind_speed_10m,wind_gusts_10m,wind_direction_10m',
       forecast_days: '2', // marge pour couvrir les prochaines heures même proche de minuit
       timezone: 'auto',
     });
@@ -69,13 +86,14 @@
     const startIndex = h.time.findIndex((t) => Date.parse(t) > currentTimeMs);
     const hourly = [];
     if (startIndex !== -1) {
-      for (let i = startIndex; i < startIndex + FORECAST_HOURS && i < h.time.length; i++) {
+      for (let i = startIndex; i < startIndex + NIGHT_HOURS && i < h.time.length; i++) {
         hourly.push({
           time: h.time[i],
           temp: h.temperature_2m[i],
           humidity: h.relative_humidity_2m[i],
           windSpeed: h.wind_speed_10m[i],
           windGusts: h.wind_gusts_10m[i],
+          windDirection: h.wind_direction_10m[i],
         });
       }
     }
@@ -83,5 +101,5 @@
     return { current, hourly };
   }
 
-  global.Weather = { getCurrentPosition, searchCity, fetchWeather, degreesToCompass };
+  global.Weather = { getCurrentPosition, searchCity, reverseGeocode, fetchWeather, degreesToCompass };
 })(window);
