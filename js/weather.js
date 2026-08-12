@@ -9,8 +9,27 @@
   const COMPASS_POINTS = ['N', 'NE', 'E', 'SE', 'S', 'SO', 'O', 'NO'];
   // Horizon de prévision récupéré une fois pour toutes les fonctionnalités qui en
   // ont besoin : le message "prochain créneau favorable" n'utilise que les 3
-  // premières heures, le rafraîchissement nocturne utilise l'horizon complet.
-  const NIGHT_HOURS = 12;
+  // premières heures, le rafraîchissement nocturne utilise l'horizon complet
+  // (24h, pour ne pas couper artificiellement une nuit encore favorable).
+  const NIGHT_HOURS = 24;
+  const REQUEST_TIMEOUT_MS = 12000;
+
+  // Enveloppe fetch avec un délai maximum : en itinérance ou sur un réseau
+  // capricieux, une requête peut rester bloquée indéfiniment sans jamais
+  // aboutir ni échouer. Passé le délai, on abandonne proprement plutôt que
+  // de laisser l'appli bloquée sur "Récupération..." pour toujours.
+  async function fetchWithTimeout(url) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+    try {
+      return await fetch(url, { signal: controller.signal });
+    } catch (err) {
+      if (err.name === 'AbortError') throw new Error('Délai dépassé, réessayez.');
+      throw err;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
 
   function getCurrentPosition() {
     return new Promise((resolve, reject) => {
@@ -28,7 +47,7 @@
 
   async function searchCity(query) {
     const url = `${GEOCODING_URL}?name=${encodeURIComponent(query)}&count=5&language=fr&format=json`;
-    const response = await fetch(url);
+    const response = await fetchWithTimeout(url);
     if (!response.ok) throw new Error('Recherche de ville indisponible.');
     const data = await response.json();
     return (data.results || []).map((r) => ({
@@ -44,7 +63,7 @@
   // https://www.bigdatacloud.com/geocoding-apis/free-reverse-geocode-to-city-api
   async function reverseGeocode(latitude, longitude) {
     const params = new URLSearchParams({ latitude, longitude, localityLanguage: 'fr' });
-    const response = await fetch(`${REVERSE_GEOCODING_URL}?${params.toString()}`);
+    const response = await fetchWithTimeout(`${REVERSE_GEOCODING_URL}?${params.toString()}`);
     if (!response.ok) throw new Error('Nom de ville indisponible.');
     const data = await response.json();
     const city = data.city || data.locality || '';
@@ -67,7 +86,7 @@
       forecast_days: '2', // marge pour couvrir les prochaines heures même proche de minuit
       timezone: 'auto',
     });
-    const response = await fetch(`${FORECAST_URL}?${params.toString()}`);
+    const response = await fetchWithTimeout(`${FORECAST_URL}?${params.toString()}`);
     if (!response.ok) throw new Error('Météo indisponible pour le moment.');
     const data = await response.json();
     const c = data.current;
@@ -114,7 +133,7 @@
       forecast_days: '1',
       timezone: 'auto',
     });
-    const response = await fetch(`${FORECAST_URL}?${params.toString()}`);
+    const response = await fetchWithTimeout(`${FORECAST_URL}?${params.toString()}`);
     if (!response.ok) throw new Error('Météo passée indisponible.');
     const data = await response.json();
     const times = data.hourly.time;

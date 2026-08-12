@@ -445,6 +445,12 @@ button {
   flex-shrink: 0;
 }
 
+.room-backup-row {
+  display: flex;
+  gap: 14px;
+  margin-top: 10px;
+}
+
 #room-form,
 #calibration-form {
   margin-top: 14px;

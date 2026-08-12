@@ -78,7 +78,10 @@
               <span id="decision-score" class="metric-value">—</span>
             </div>
             <div id="duration-block">
-              <span class="metric-label">Durée idéale</span>
+              <span class="metric-label">
+                Durée idéale
+                <button id="duration-help-btn" class="info-btn" type="button" aria-label="Comment cette durée est calculée ?">ⓘ</button>
+              </span>
               <span id="decision-duration" class="metric-value">—</span>
             </div>
           </div>
@@ -134,6 +137,14 @@
               <button id="room-calibrate-btn" class="link-btn" type="button">Calibrer</button>
             </div>
           </div>
+
+          <div class="room-backup-row">
+            <button id="room-export-btn" class="link-btn" type="button">Exporter</button>
+            <button id="room-import-btn" class="link-btn" type="button">Importer</button>
+            <input type="file" id="room-import-input" accept="application/json" hidden />
+          </div>
+          <p id="room-backup-error" class="error-message" role="alert" hidden></p>
+
           <div id="room-form" hidden>
             <div class="field-row">
               <label for="room-surface">Surface (m²)</label>
@@ -154,10 +165,11 @@
               <button type="button" data-dir="O">O</button>
               <button type="button" data-dir="NO">NO</button>
             </div>
-            <label class="checkbox-row">
+            <div class="checkbox-row">
               <input type="checkbox" id="room-cross-vent" />
-              Courant d'air (fenêtres en vis-à-vis)
-            </label>
+              <label for="room-cross-vent">Courant d'air (fenêtres en vis-à-vis)</label>
+              <button id="cross-vent-help-btn" class="info-btn" type="button" aria-label="Qu'est-ce que le courant d'air ?">ⓘ</button>
+            </div>
             <div class="action-row">
               <button id="room-cancel-btn" class="btn-secondary" type="button">Annuler</button>
               <button id="room-save-btn" class="btn-primary" type="button">Enregistrer</button>
@@ -192,7 +204,10 @@
         </div>
 
         <div id="night-cooling-card" class="card night-cooling-card">
-          <h4>🌙 Rafraîchissement nocturne</h4>
+          <h4>
+            🌙 Rafraîchissement nocturne
+            <button id="night-help-btn" class="info-btn" type="button" aria-label="Comment ce calcul est fait ?">ⓘ</button>
+          </h4>
           <p id="night-cooling-text" class="muted">Configurez "Ma pièce" pour activer cette estimation.</p>
           <table id="night-forecast-table" class="night-forecast-table" hidden>
             <thead>
@@ -237,6 +252,26 @@
     </table>
     <p class="muted">La durée idéale varie de 5 à 45 min selon le score. La confiance reflète la distance aux seuils : proche d'un seuil, la recommandation pourrait basculer avec de petites variations.</p>
     <button id="score-help-close-btn" class="btn-primary" type="button">Fermer</button>
+  </dialog>
+
+  <dialog id="night-help-dialog" class="help-dialog">
+    <h3>Comment est calculée cette fenêtre ?</h3>
+    <p>L'appli parcourt les prévisions météo des prochaines 24h pour trouver :</p>
+    <ul>
+      <li><strong>Ouverture</strong> : la première heure où l'extérieur passe sous votre température intérieure actuelle.</li>
+      <li><strong>Fermeture</strong> : la dernière heure encore favorable, juste avant que l'extérieur ne redevienne plus chaud que la pièce (pas la première heure défavorable — on ferme avant que ça se dégrade, pas pendant).</li>
+    </ul>
+    <p>La température "jusqu'à environ X°C" est une <strong>estimation calculée</strong>, pas une mesure : elle simule heure par heure le refroidissement de la pièce à partir de son volume et du débit d'air (orientation de la fenêtre, vent, courant d'air). Si "Ma pièce" a été calibrée avec une mesure réelle, c'est ce calibrage qui est utilisé à la place de l'estimation générique.</p>
+    <p class="muted">Si les conditions restent favorables jusqu'à la fin des prévisions disponibles (24h), le message l'indique clairement plutôt que de sous-entendre une dégradation qui n'a pas été détectée.</p>
+    <button id="night-help-close-btn" class="btn-primary" type="button">Fermer</button>
+  </dialog>
+
+  <dialog id="cross-vent-help-dialog" class="help-dialog">
+    <h3>Qu'est-ce que le courant d'air ?</h3>
+    <p>Coche cette case si tu ouvres <strong>deux fenêtres opposées ou éloignées</strong> (ou une fenêtre et une porte donnant sur l'extérieur), créant un flux d'air qui traverse la pièce d'un côté à l'autre.</p>
+    <p>C'est beaucoup plus efficace qu'une seule fenêtre ouverte : l'air circule au lieu de simplement entrer et ressortir par la même ouverture, ce qui accélère le renouvellement d'air et le refroidissement estimé.</p>
+    <p class="muted">Ne coche pas cette case si tu n'ouvres qu'une seule fenêtre.</p>
+    <button id="cross-vent-help-close-btn" class="btn-primary" type="button">Fermer</button>
   </dialog>
 
   <script src="js/psychrometrics.js"></script>

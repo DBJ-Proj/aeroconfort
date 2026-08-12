@@ -32,6 +32,13 @@
     scoreHelpBtn: document.getElementById('score-help-btn'),
     scoreHelpDialog: document.getElementById('score-help-dialog'),
     scoreHelpCloseBtn: document.getElementById('score-help-close-btn'),
+    nightHelpBtn: document.getElementById('night-help-btn'),
+    nightHelpDialog: document.getElementById('night-help-dialog'),
+    nightHelpCloseBtn: document.getElementById('night-help-close-btn'),
+    durationHelpBtn: document.getElementById('duration-help-btn'),
+    crossVentHelpBtn: document.getElementById('cross-vent-help-btn'),
+    crossVentHelpDialog: document.getElementById('cross-vent-help-dialog'),
+    crossVentHelpCloseBtn: document.getElementById('cross-vent-help-close-btn'),
     expertToggle: document.getElementById('expert-toggle'),
     expertPanel: document.getElementById('expert-panel'),
     backToInputBtn: document.getElementById('back-to-input-btn'),
@@ -47,6 +54,10 @@
     roomCrossVent: document.getElementById('room-cross-vent'),
     roomCancelBtn: document.getElementById('room-cancel-btn'),
     roomSaveBtn: document.getElementById('room-save-btn'),
+    roomExportBtn: document.getElementById('room-export-btn'),
+    roomImportBtn: document.getElementById('room-import-btn'),
+    roomImportInput: document.getElementById('room-import-input'),
+    roomBackupError: document.getElementById('room-backup-error'),
     nightForecastTable: document.getElementById('night-forecast-table'),
     nightForecastBody: document.getElementById('night-forecast-body'),
 
@@ -362,6 +373,63 @@
     closeRoomForm();
   });
 
+  // --- Export / Import "Ma pièce" ---------------------------------------------------
+
+  function showRoomBackupError(message) {
+    els.roomBackupError.textContent = message;
+    els.roomBackupError.hidden = false;
+  }
+
+  els.roomExportBtn.addEventListener('click', () => {
+    els.roomBackupError.hidden = true;
+    if (!currentRoom) {
+      showRoomBackupError('Configure "Ma pièce" avant d\'exporter.');
+      return;
+    }
+    const blob = new Blob([JSON.stringify(currentRoom, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'aeroconfort-ma-piece.json';
+    a.click();
+    URL.revokeObjectURL(url);
+  });
+
+  els.roomImportBtn.addEventListener('click', () => {
+    els.roomBackupError.hidden = true;
+    els.roomImportInput.click();
+  });
+
+  els.roomImportInput.addEventListener('change', async () => {
+    const file = els.roomImportInput.files[0];
+    els.roomImportInput.value = '';
+    if (!file) return;
+    els.roomBackupError.hidden = true;
+    const validOrientations = ['N', 'NE', 'E', 'SE', 'S', 'SO', 'O', 'NO'];
+    try {
+      const data = JSON.parse(await file.text());
+      if (
+        typeof data.surface !== 'number' || data.surface <= 0 ||
+        typeof data.ceilingHeight !== 'number' || data.ceilingHeight <= 0 ||
+        !validOrientations.includes(data.orientation)
+      ) {
+        showRoomBackupError('Fichier invalide : ce n\'est pas un export "Ma pièce" reconnu.');
+        return;
+      }
+      currentRoom = {
+        surface: data.surface,
+        ceilingHeight: data.ceilingHeight,
+        orientation: data.orientation,
+        crossVentilation: !!data.crossVentilation,
+        calibratedTauHours: typeof data.calibratedTauHours === 'number' ? data.calibratedTauHours : undefined,
+      };
+      window.Storage.saveRoom(currentRoom);
+      renderRoomSummary();
+    } catch (err) {
+      showRoomBackupError('Impossible de lire ce fichier.');
+    }
+  });
+
   // --- Calibration (mesure réelle) ---------------------------------------------------
 
   function openCalibrationForm() {
@@ -476,9 +544,13 @@
       // moment et ne proposerait qu'un créneau plus tard dans les prévisions.
       const nightPoints = currentOutdoor ? [currentOutdoor, ...currentForecast] : currentForecast;
       const night = window.Decision.computeNightCooling(getIndoorValues(), nightPoints, currentRoom);
-      document.getElementById('night-cooling-text').textContent = night
-        ? `Ouvrez vers ${formatHHMM(night.openTime)}, fermez vers ${formatHHMM(night.closeTime)} → jusqu'à environ ${round(night.finalTemp, 1)}°C.`
-        : 'Aucune fenêtre de rafraîchissement nocturne prévue sur les prochaines heures.';
+      let nightText = 'Aucune fenêtre de rafraîchissement nocturne prévue sur les prochaines heures.';
+      if (night) {
+        nightText = night.closeIsRealCrossing
+          ? `Ouvrez vers ${formatHHMM(night.openTime)}, fermez vers ${formatHHMM(night.closeTime)} → jusqu'à environ ${round(night.finalTemp, 1)}°C.`
+          : `Ouvrez vers ${formatHHMM(night.openTime)} : encore favorable au moins jusqu'à ${formatHHMM(night.closeTime)} (limite des prévisions disponibles), environ ${round(night.finalTemp, 1)}°C à ce moment-là.`;
+      }
+      document.getElementById('night-cooling-text').textContent = nightText;
 
       if (night && night.hourlyPoints.length) {
         els.nightForecastBody.innerHTML = night.hourlyPoints.map((p) =>
@@ -520,6 +592,20 @@
   els.scoreHelpCloseBtn.addEventListener('click', () => els.scoreHelpDialog.close());
   els.scoreHelpDialog.addEventListener('click', (event) => {
     if (event.target === els.scoreHelpDialog) els.scoreHelpDialog.close();
+  });
+
+  els.nightHelpBtn.addEventListener('click', () => els.nightHelpDialog.showModal());
+  els.nightHelpCloseBtn.addEventListener('click', () => els.nightHelpDialog.close());
+  els.nightHelpDialog.addEventListener('click', (event) => {
+    if (event.target === els.nightHelpDialog) els.nightHelpDialog.close();
+  });
+
+  els.durationHelpBtn.addEventListener('click', () => els.scoreHelpDialog.showModal());
+
+  els.crossVentHelpBtn.addEventListener('click', () => els.crossVentHelpDialog.showModal());
+  els.crossVentHelpCloseBtn.addEventListener('click', () => els.crossVentHelpDialog.close());
+  els.crossVentHelpDialog.addEventListener('click', (event) => {
+    if (event.target === els.crossVentHelpDialog) els.crossVentHelpDialog.close();
   });
 
   els.expertToggle.addEventListener('change', () => {

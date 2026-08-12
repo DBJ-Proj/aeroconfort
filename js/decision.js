@@ -252,12 +252,14 @@
 
     let roomTemp = indoor.temp;
     let closeIndex = openIndex;
+    let crossingFound = false;
     for (let i = openIndex; i < hourlyOutdoor.length - 1; i++) {
       const point = hourlyOutdoor[i];
       const nextPoint = hourlyOutdoor[i + 1];
       const nextRoomTemp = projectRoomTemp(roomTemp, point.temp, 1, volume, computeAirflow(point, room), room.calibratedTauHours);
       if (nextPoint.temp >= nextRoomTemp) {
         closeIndex = i;
+        crossingFound = true;
         break;
       }
       roomTemp = nextRoomTemp;
@@ -268,8 +270,13 @@
       openTime: hourlyOutdoor[openIndex].time,
       closeTime: hourlyOutdoor[closeIndex].time,
       finalTemp: roomTemp,
+      // false : les conditions restent favorables jusqu'à la fin des prévisions
+      // disponibles — "fermez vers X" reflète alors la limite des données, pas
+      // une vraie dégradation détectée.
+      closeIsRealCrossing: crossingFound,
       // Prévisions heure par heure de maintenant (index 0) jusqu'à la fermeture,
-      // +1 heure supplémentaire pour constater que celle-ci est bien défavorable.
+      // +1 heure supplémentaire (si disponible) pour constater que celle-ci est
+      // bien défavorable.
       hourlyPoints: hourlyOutdoor.slice(0, closeIndex + 2).map((p) => ({
         time: p.time,
         temp: p.temp,
