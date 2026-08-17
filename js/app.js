@@ -558,10 +558,7 @@
     if (regimeInfo.context === 'mild') {
       return 'Il fait déjà bon dehors, entre vos deux cibles : pas de rafraîchissement à chercher pour l\'instant.';
     }
-    if (regimeInfo.context === 'winter') {
-      return 'Contexte hiver, intérieur déjà proche ou sous la cible : le rafraîchissement n\'a pas de sens ici.';
-    }
-    return 'Contexte été, mais l\'extérieur n\'est pas (ou plus) plus frais que l\'intérieur pour l\'instant : pas de baisse à chercher.';
+    return 'Intérieur déjà proche ou sous la cible retenue : pas de rafraîchissement à chercher.';
   }
 
   function renderDecision(decision) {
@@ -620,7 +617,11 @@
       els.coolingEstimate.hidden = true;
     }
 
-    const showNightCooling = !regimeInfo || regimeInfo.regime === 'refresh';
+    // La carte nocturne concerne un créneau potentiellement futur (ce soir, cette
+    // nuit) : elle ne doit pas dépendre du fait que l'extérieur soit déjà plus
+    // frais maintenant (ça, c'est le critère du régime "rafraîchir" pour la durée
+    // immédiate), seulement du fait qu'il y ait une cible à chasser du tout.
+    const showNightCooling = !regimeInfo || (regimeInfo.target !== null && getIndoorValues().temp > regimeInfo.target);
     els.nightCoolingCard.hidden = !showNightCooling;
     els.coolingNotApplicableCard.hidden = showNightCooling;
 
