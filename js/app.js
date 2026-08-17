@@ -12,6 +12,8 @@
     cancelLocationPickerBtn: document.getElementById('cancel-location-picker-btn'),
     indoorTemp: document.getElementById('indoor-temp'),
     indoorHumidity: document.getElementById('indoor-humidity'),
+    targetSummer: document.getElementById('target-summer'),
+    targetWinter: document.getElementById('target-winter'),
     outdoorWeather: document.getElementById('outdoor-weather'),
     refreshWeatherBtn: document.getElementById('refresh-weather'),
     analyzeBtn: document.getElementById('analyze-btn'),
@@ -24,11 +26,16 @@
     decisionStatus: document.getElementById('decision-status'),
     decisionScore: document.getElementById('decision-score'),
     durationBlock: document.getElementById('duration-block'),
+    durationLabelText: document.getElementById('duration-label-text'),
     decisionDuration: document.getElementById('decision-duration'),
     decisionConfidence: document.getElementById('decision-confidence'),
+    regimeNote: document.getElementById('regime-note'),
     decisionReasons: document.getElementById('decision-reasons'),
     forecastAdvice: document.getElementById('forecast-advice'),
     coolingEstimate: document.getElementById('cooling-estimate'),
+    coolingEstimateLabel: document.getElementById('cooling-estimate-label'),
+    coolingNotApplicableCard: document.getElementById('cooling-not-applicable-card'),
+    coolingNotApplicableText: document.getElementById('cooling-not-applicable-text'),
     scoreHelpBtn: document.getElementById('score-help-btn'),
     scoreHelpDialog: document.getElementById('score-help-dialog'),
     scoreHelpCloseBtn: document.getElementById('score-help-close-btn'),
@@ -58,6 +65,7 @@
     roomImportBtn: document.getElementById('room-import-btn'),
     roomImportInput: document.getElementById('room-import-input'),
     roomBackupError: document.getElementById('room-backup-error'),
+    nightCoolingCard: document.getElementById('night-cooling-card'),
     nightForecastTable: document.getElementById('night-forecast-table'),
     nightForecastBody: document.getElementById('night-forecast-body'),
 
@@ -88,12 +96,15 @@
   };
   const DEFAULT_TIMER_MINUTES = 15;
   const CITY_SEARCH_DEBOUNCE_MS = 350;
+  const DEFAULT_TARGETS = { summer: 22, winter: 20 };
 
   let currentLocation = null;
   let currentOutdoor = null;
   let currentForecast = [];
   let currentDecision = null;
+  let currentAerationMinutes = null;
   let currentRoom = window.Storage.loadRoom();
+  let currentTargets = window.Storage.loadTargets() || DEFAULT_TARGETS;
   let weatherLoadAttempted = false;
   const timer = window.AerationTimer();
 
@@ -308,6 +319,35 @@
     }
   }
 
+  // --- Cibles de confort (été / hiver) ---------------------------------------------------
+
+  function getTargetsValues() {
+    const summer = parseDecimal(els.targetSummer.value);
+    const winter = parseDecimal(els.targetWinter.value);
+    return { summer, winter };
+  }
+
+  function targetsValuesValid() {
+    const { summer, winter } = getTargetsValues();
+    return Number.isFinite(summer) && Number.isFinite(winter);
+  }
+
+  function prefillTargets() {
+    const saved = window.Storage.loadTargets();
+    currentTargets = saved || DEFAULT_TARGETS;
+    els.targetSummer.value = currentTargets.summer;
+    els.targetWinter.value = currentTargets.winter;
+  }
+
+  [els.targetSummer, els.targetWinter].forEach((input) => {
+    input.addEventListener('input', () => {
+      if (targetsValuesValid()) {
+        currentTargets = getTargetsValues();
+        window.Storage.saveTargets(currentTargets);
+      }
+    });
+  });
+
   // --- Ma pièce ---------------------------------------------------
 
   function formatRoomSummary(room) {
@@ -504,18 +544,62 @@
 
   // --- Analyse / résultat ---------------------------------------------------
 
+  function regimeNoteText(regimeInfo) {
+    if (regimeInfo.context === 'mild') {
+      return 'Il fait déjà bon dehors, entre vos deux cibles : aération courte pour renouveler l\'air, pas de température à chercher.';
+    }
+    if (regimeInfo.context === 'winter') {
+      return 'Contexte hiver, intérieur déjà proche ou sous la cible : aération courte pour l\'air, sans trop refroidir.';
+    }
+    return 'Contexte été, mais pas de baisse de température à gagner pour l\'instant : aération courte pour l\'air.';
+  }
+
+  function coolingNotApplicableText(regimeInfo) {
+    if (regimeInfo.context === 'mild') {
+      return 'Il fait déjà bon dehors, entre vos deux cibles : pas de rafraîchissement à chercher pour l\'instant.';
+    }
+    if (regimeInfo.context === 'winter') {
+      return 'Contexte hiver, intérieur déjà proche ou sous la cible : le rafraîchissement n\'a pas de sens ici.';
+    }
+    return 'Contexte été, mais l\'extérieur n\'est pas (ou plus) plus frais que l\'intérieur pour l\'instant : pas de baisse à chercher.';
+  }
+
   function renderDecision(decision) {
     els.decisionStatus.textContent = STATUS_LABELS[decision.status];
     els.decisionStatus.className = `decision-status status-${decision.status.toLowerCase()}`;
     els.decisionScore.textContent = `${decision.score}/100`;
-    if (decision.durationMinutes !== null) {
+    els.decisionConfidence.textContent = decision.confidence;
+    els.decisionReasons.innerHTML = decision.reasons.map((r) => `<li>${r}</li>`).join('');
+
+    const regimeInfo = currentOutdoor ? window.Decision.computeComfortRegime(getIndoorValues(), currentOutdoor, currentTargets) : null;
+
+    let aeration = { durationMinutes: null, finalTemp: null };
+    if (regimeInfo && decision.status === 'OUVRIR') {
+      if (regimeInfo.regime === 'refresh') {
+        aeration.durationMinutes = decision.durationMinutes;
+        const cooling = currentRoom ? window.Decision.computeCoolingEstimate(getIndoorValues(), currentOutdoor, currentRoom, decision.durationMinutes) : null;
+        aeration.finalTemp = cooling ? cooling.finalTemp : null;
+      } else {
+        const short = window.Decision.computeShortAeration(getIndoorValues(), currentOutdoor, currentRoom);
+        aeration.durationMinutes = short.durationMinutes;
+        aeration.finalTemp = short.finalTemp;
+      }
+    }
+
+    if (aeration.durationMinutes !== null) {
       els.durationBlock.hidden = false;
-      els.decisionDuration.textContent = `${decision.durationMinutes} min`;
+      els.durationLabelText.textContent = regimeInfo.regime === 'refresh' ? 'Durée idéale' : 'Aération conseillée';
+      els.decisionDuration.textContent = `${aeration.durationMinutes} min`;
     } else {
       els.durationBlock.hidden = true;
     }
-    els.decisionConfidence.textContent = decision.confidence;
-    els.decisionReasons.innerHTML = decision.reasons.map((r) => `<li>${r}</li>`).join('');
+
+    if (regimeInfo && regimeInfo.regime === 'short' && decision.status === 'OUVRIR') {
+      els.regimeNote.textContent = regimeNoteText(regimeInfo);
+      els.regimeNote.hidden = false;
+    } else {
+      els.regimeNote.hidden = true;
+    }
 
     if (decision.status === 'OUVRIR' || !currentOutdoor) {
       els.forecastAdvice.hidden = true;
@@ -527,42 +611,48 @@
         : `🔮 Pas d'amélioration prévue dans les prochaines heures d'après les prévisions actuelles.`;
     }
 
-    if (currentRoom && decision.durationMinutes && currentOutdoor) {
-      const cooling = window.Decision.computeCoolingEstimate(getIndoorValues(), currentOutdoor, currentRoom, decision.durationMinutes);
-      els.coolingEstimate.hidden = !cooling;
-      if (cooling) {
-        document.getElementById('cooling-estimate-text').textContent =
-          `${round(getIndoorValues().temp, 1)}°C → ${round(cooling.finalTemp, 1)}°C en ${decision.durationMinutes} min`;
-      }
+    if (aeration.finalTemp !== null && aeration.durationMinutes !== null) {
+      els.coolingEstimate.hidden = false;
+      els.coolingEstimateLabel.textContent = regimeInfo.regime === 'refresh' ? 'Baisse estimée' : 'Température estimée après aération';
+      document.getElementById('cooling-estimate-text').textContent =
+        `${round(getIndoorValues().temp, 1)}°C → ${round(aeration.finalTemp, 1)}°C en ${aeration.durationMinutes} min`;
     } else {
       els.coolingEstimate.hidden = true;
     }
 
-    if (currentRoom) {
-      // Les conditions actuelles comptent comme premier créneau possible : sans
-      // ça, si dehors est déjà plus frais maintenant, l'algorithme sauterait ce
-      // moment et ne proposerait qu'un créneau plus tard dans les prévisions.
-      const nightPoints = currentOutdoor ? [currentOutdoor, ...currentForecast] : currentForecast;
-      const night = window.Decision.computeNightCooling(getIndoorValues(), nightPoints, currentRoom);
-      let nightText = 'Aucune fenêtre de rafraîchissement nocturne prévue sur les prochaines heures.';
-      if (night) {
-        nightText = night.closeIsRealCrossing
-          ? `Ouvrez vers ${formatHHMM(night.openTime)}, fermez vers ${formatHHMM(night.closeTime)} → jusqu'à environ ${round(night.finalTemp, 1)}°C.`
-          : `Ouvrez vers ${formatHHMM(night.openTime)} : encore favorable au moins jusqu'à ${formatHHMM(night.closeTime)} (limite des prévisions disponibles), environ ${round(night.finalTemp, 1)}°C à ce moment-là.`;
-      }
-      document.getElementById('night-cooling-text').textContent = nightText;
+    const showNightCooling = !regimeInfo || regimeInfo.regime === 'refresh';
+    els.nightCoolingCard.hidden = !showNightCooling;
+    els.coolingNotApplicableCard.hidden = showNightCooling;
 
-      if (night && night.hourlyPoints.length) {
-        els.nightForecastBody.innerHTML = night.hourlyPoints.map((p) =>
-          `<tr><td>${formatHHMM(p.time)}</td><td>${round(p.temp, 1)}°C</td><td>${round(p.humidity, 0)}%</td></tr>`
-        ).join('');
-        els.nightForecastTable.hidden = false;
+    if (showNightCooling) {
+      if (currentRoom) {
+        // Les conditions actuelles comptent comme premier créneau possible : sans
+        // ça, si dehors est déjà plus frais maintenant, l'algorithme sauterait ce
+        // moment et ne proposerait qu'un créneau plus tard dans les prévisions.
+        const nightPoints = currentOutdoor ? [currentOutdoor, ...currentForecast] : currentForecast;
+        const night = window.Decision.computeNightCooling(getIndoorValues(), nightPoints, currentRoom);
+        let nightText = 'Aucune fenêtre de rafraîchissement nocturne prévue sur les prochaines heures.';
+        if (night) {
+          nightText = night.closeIsRealCrossing
+            ? `Ouvrez vers ${formatHHMM(night.openTime)}, fermez vers ${formatHHMM(night.closeTime)} → jusqu'à environ ${round(night.finalTemp, 1)}°C.`
+            : `Ouvrez vers ${formatHHMM(night.openTime)} : encore favorable au moins jusqu'à ${formatHHMM(night.closeTime)} (limite des prévisions disponibles), environ ${round(night.finalTemp, 1)}°C à ce moment-là.`;
+        }
+        document.getElementById('night-cooling-text').textContent = nightText;
+
+        if (night && night.hourlyPoints.length) {
+          els.nightForecastBody.innerHTML = night.hourlyPoints.map((p) =>
+            `<tr><td>${formatHHMM(p.time)}</td><td>${round(p.temp, 1)}°C</td><td>${round(p.humidity, 0)}%</td></tr>`
+          ).join('');
+          els.nightForecastTable.hidden = false;
+        } else {
+          els.nightForecastTable.hidden = true;
+        }
       } else {
+        document.getElementById('night-cooling-text').textContent = 'Configurez "Ma pièce" pour activer cette estimation.';
         els.nightForecastTable.hidden = true;
       }
     } else {
-      document.getElementById('night-cooling-text').textContent = 'Configurez "Ma pièce" pour activer cette estimation.';
-      els.nightForecastTable.hidden = true;
+      els.coolingNotApplicableText.textContent = coolingNotApplicableText(regimeInfo);
     }
 
     const e = decision.expert;
@@ -576,6 +666,8 @@
     document.getElementById('expert-hygro-gap').textContent = `${round(e.hygrometricGap, 1)} g/m³`;
     document.getElementById('expert-renewal').textContent = `~${e.airRenewalMinutes} min`;
     document.getElementById('expert-wall-risk').textContent = e.wallReheatRisk;
+
+    currentAerationMinutes = aeration.durationMinutes;
   }
 
   els.analyzeBtn.addEventListener('click', () => {
@@ -615,7 +707,7 @@
   // --- Chronomètre ---------------------------------------------------
 
   els.openedBtn.addEventListener('click', () => {
-    const durationMinutes = (currentDecision && currentDecision.durationMinutes) || DEFAULT_TIMER_MINUTES;
+    const durationMinutes = currentAerationMinutes || DEFAULT_TIMER_MINUTES;
     showScreen('screen-timer');
     els.timerStatus.className = 'timer-status';
     timer.start(durationMinutes, {
@@ -653,6 +745,7 @@
   // --- Démarrage ---------------------------------------------------
 
   prefillIndoor();
+  prefillTargets();
   renderRoomSummary();
   validateAndToggleAnalyze();
   initLocation();

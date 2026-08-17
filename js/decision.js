@@ -285,5 +285,61 @@
     };
   }
 
-  global.Decision = { computeDecision, computeForecastAdvice, computeCoolingEstimate, computeNightCooling, computeCalibration, CONSTANTS };
+  // Détermine si on est en contexte "hiver" (extérieur sous la cible hiver),
+  // "été" (extérieur au-dessus de la cible été), ou "intermédiaire" (il fait
+  // déjà bon dehors, aucune cible ne s'applique).
+  function determineTargetContext(outdoorTemp, targets) {
+    if (outdoorTemp < targets.winter) return { mode: 'winter', target: targets.winter };
+    if (outdoorTemp > targets.summer) return { mode: 'summer', target: targets.summer };
+    return { mode: 'mild', target: null };
+  }
+
+  // Choisit entre deux régimes de recommandation :
+  // - "refresh" : l'intérieur dépasse la cible retenue ET l'extérieur est
+  //   plus frais que l'intérieur — il y a un vrai bénéfice à chasser, la
+  //   durée proportionnelle au score (computeDecision) garde son sens.
+  // - "short" : tous les autres cas (intérieur déjà proche/sous la cible, ou
+  //   contexte intermédiaire) — pas de température à chasser, juste une
+  //   aération courte pour l'air (cf. computeShortAeration).
+  function computeComfortRegime(indoor, outdoor, targets) {
+    const context = determineTargetContext(outdoor.temp, targets);
+    if (context.mode === 'mild') {
+      return { regime: 'short', target: null, context: context.mode };
+    }
+    if (indoor.temp > context.target && outdoor.temp < indoor.temp) {
+      return { regime: 'refresh', target: context.target, context: context.mode };
+    }
+    return { regime: 'short', target: context.target, context: context.mode };
+  }
+
+  // Durée d'une aération courte (renouvellement d'air, pas une chasse à une
+  // température) : le temps pour un renouvellement complet de l'air de la
+  // pièce, à partir de son volume et du débit d'air réel (même principe que
+  // "Renouvellement d'air estimé" en mode Expert, réappliqué ici avec "Ma
+  // pièce" pour être précis sur ce cas précis). Donne aussi la température
+  // atteinte après cette durée, à titre indicatif. Sans "Ma pièce", repli sur
+  // l'estimation générique vent seul (durée seule, pas de température).
+  function computeShortAeration(indoor, outdoor, room) {
+    if (!room) {
+      return { durationMinutes: Math.round(clamp(30 - outdoor.windSpeed * 0.5, 5, 40)), finalTemp: null };
+    }
+    const volume = computeRoomVolume(room);
+    const airflow = computeAirflow(outdoor, room);
+    if (airflow <= 0) return { durationMinutes: null, finalTemp: null };
+    const durationMinutes = clamp(Math.round((60 * volume) / airflow), 1, 600);
+    const finalTemp = projectRoomTemp(indoor.temp, outdoor.temp, durationMinutes / 60, volume, airflow, room.calibratedTauHours);
+    return { durationMinutes, finalTemp };
+  }
+
+  global.Decision = {
+    computeDecision,
+    computeForecastAdvice,
+    computeCoolingEstimate,
+    computeNightCooling,
+    computeCalibration,
+    determineTargetContext,
+    computeComfortRegime,
+    computeShortAeration,
+    CONSTANTS,
+  };
 })(window);

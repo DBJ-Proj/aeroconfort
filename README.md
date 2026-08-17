@@ -8,37 +8,65 @@ PWA légère en HTML/CSS/JavaScript "vanilla" (aucun framework), installable sur
 iPhone (Safari → Partager → Sur l'écran d'accueil) et Android (Chrome →
 Installer l'application).
 
-## Fonctionnalités (V1.0)
+## Fonctionnalités
 
 - Saisie de la température et de l'humidité intérieures.
 - Météo extérieure automatique (température, humidité, vent, rafales,
-  direction) via [Open-Meteo](https://open-meteo.com/) — gratuit, sans clé API.
+  direction) via [Open-Meteo](https://open-meteo.com/) — gratuit, sans clé API,
+  avec timeout réseau (12 s) pour éviter un blocage indéfini en cas de
+  connexion instable (ex. itinérance).
 - Géolocalisation automatique avec nom de ville affiché (géolocalisation
   inverse via [BigDataCloud](https://www.bigdatacloud.com/geocoding-apis/free-reverse-geocode-to-city-api),
   gratuit, sans clé API), et bouton "Changer de ville" toujours accessible
   pour rechercher une autre localité (autocomplétion Open-Meteo).
 - Calculs : humidité absolue, point de rosée, humidex.
-- Décision 🟢 Ouvrir / 🟡 Attendre / 🔴 Fermer avec score, durée idéale et
-  raisons expliquées.
+- Deux cibles de confort mémorisées, **été** (22°C par défaut) et **hiver**
+  (20°C par défaut), modifiables sur l'écran de saisie. Elles déterminent
+  automatiquement le contexte (été / hiver / intermédiaire) d'après la
+  température **extérieure**, pas le calendrier, et donc le régime de
+  recommandation (voir ci-dessous) — aucun réglage manuel de saison à faire.
+- Décision 🟢 Ouvrir / 🟡 Attendre / 🔴 Fermer avec score, confiance et
+  raisons expliquées ; ce calcul est identique toute l'année (l'humidité
+  seule peut justifier d'ouvrir même par temps frais). Ce qui change selon le
+  contexte, c'est la **durée conseillée** :
+  - **Rafraîchir** : l'intérieur dépasse la cible retenue et l'extérieur est
+    plus frais — durée de 5 à 45 min proportionnelle au score, avec (si "Ma
+    pièce" est configurée) une estimation de la température atteinte.
+  - **Aération courte** : cible déjà atteinte, ou température extérieure
+    entre les deux cibles (il fait déjà bon dehors) — pas de température à
+    chasser, juste le temps nécessaire pour renouveler l'air de la pièce
+    (calculé à partir de "Ma pièce" si configurée, sinon estimation générique
+    au vent).
 - Si la décision n'est pas "Ouvrir" : estimation du prochain créneau favorable
   dans les 2-3 prochaines heures, à partir des prévisions météo.
-- Chronomètre d'aération avec suivi en temps réel.
+- Deux onglets sur l'écran de résultat : "Renouvellement d'air" (décision,
+  raisons, mode Expert) et "Rafraîchissement" (Ma pièce, Rafraîchissement
+  nocturne — masqué et remplacé par un message contextuel quand le régime est
+  "Aération courte", ce rafraîchissement n'ayant alors pas de sens).
+- Chronomètre d'aération avec suivi en temps réel, calé sur la durée
+  effectivement conseillée (régime "Rafraîchir" ou "Aération courte").
 - Mode Expert : détail des calculs (humidités absolues, points de rosée,
-  écarts, temps de renouvellement d'air estimé, confiance).
-- Profil "Ma pièce" (mode Expert, optionnel) : surface, hauteur de plafond,
-  orientation de la/les fenêtre(s), courant d'air. Une fois renseigné, il
-  affine le temps de renouvellement d'air (débit réel selon le vent et
-  l'orientation plutôt qu'une estimation générique) et débloque deux
-  informations sur l'écran principal :
-  - **Baisse estimée** : température atteignable en ouvrant pour la durée
-    idéale actuelle.
-  - **Rafraîchissement nocturne** : détecte, sur les prévisions à venir,
-    la fenêtre où l'extérieur reste durablement plus frais (typiquement la
-    nuit), et indique quand ouvrir et quand fermer avant que l'extérieur ne
-    redevienne plus chaud que la pièce.
-  Ces estimations utilisent un modèle physique simplifié (débit d'air par
-  règle empirique de ventilation naturelle, refroidissement par décroissance
-  exponentielle, sans inertie thermique des murs) — indicatif, pas une
+  écarts, temps de renouvellement d'air estimé au vent seul, confiance).
+- Profil "Ma pièce" (optionnel) : surface, hauteur de plafond, orientation de
+  la/les fenêtre(s), courant d'air. Une fois renseigné, il affine le débit
+  d'air réel (vent + orientation plutôt qu'une estimation générique) et
+  alimente :
+  - La durée et la température estimée de l'aération conseillée, quel que
+    soit le régime.
+  - **Rafraîchissement nocturne** (régime "Rafraîchir" uniquement) : détecte,
+    sur les prévisions à venir, la fenêtre où l'extérieur reste durablement
+    plus frais (typiquement la nuit), et indique quand ouvrir et quand fermer
+    avant que l'extérieur ne redevienne plus chaud que la pièce.
+  - **Calibrage réel** : à partir d'une mesure (température intérieure avant/
+    après une période fenêtre ouverte), calcule un temps de refroidissement
+    propre à la pièce (la météo extérieure réelle de la période est récupérée
+    automatiquement) — remplace l'estimation générique dès qu'il est disponible.
+  - **Export / Import** : sauvegarde ou restauration de "Ma pièce" (y compris
+    le calibrage) au format JSON, pour ne pas tout ressaisir en cas de
+    changement d'appareil.
+  Le modèle physique reste volontairement simple (débit d'air par règle
+  empirique de ventilation naturelle, refroidissement par décroissance
+  exponentielle avec facteur d'inertie thermique) — indicatif, pas une
   simulation d'ingénierie.
 - Mode sombre automatique (suit les préférences système).
 - Installable en PWA (manifest + service worker).

@@ -7,6 +7,7 @@
     LOCATION: 'aeroconfort.location',
     INDOOR: 'aeroconfort.indoor',
     ROOM: 'aeroconfort.room',
+    TARGETS: 'aeroconfort.targets',
   };
 
   function readJSON(key) {
@@ -50,5 +51,13 @@
     return readJSON(KEYS.ROOM);
   }
 
-  global.Storage = { saveLocation, loadLocation, saveIndoor, loadIndoor, saveRoom, loadRoom };
+  function saveTargets(targets) {
+    writeJSON(KEYS.TARGETS, targets);
+  }
+
+  function loadTargets() {
+    return readJSON(KEYS.TARGETS);
+  }
+
+  global.Storage = { saveLocation, loadLocation, saveIndoor, loadIndoor, saveRoom, loadRoom, saveTargets, loadTargets };
 })(window);

@@ -46,6 +46,19 @@
       </div>
 
       <div class="card">
+        <h3>🎯 Confort souhaité</h3>
+        <div class="field-row">
+          <label for="target-summer">Cible été (°C)</label>
+          <input type="text" id="target-summer" inputmode="decimal" pattern="[0-9]*[.,]?[0-9]*" placeholder="ex : 22" />
+        </div>
+        <div class="field-row">
+          <label for="target-winter">Cible hiver (°C)</label>
+          <input type="text" id="target-winter" inputmode="decimal" pattern="[0-9]*[.,]?[0-9]*" placeholder="ex : 20" />
+        </div>
+        <p class="muted">Au-dessus de la cible été ou en dessous de la cible hiver dehors, l'appli vise cette température. Entre les deux, il fait déjà bon : elle propose juste une aération courte.</p>
+      </div>
+
+      <div class="card">
         <h3>☀️ Extérieur</h3>
         <div id="outdoor-weather" class="outdoor-weather" aria-live="polite">
           <p class="muted">Récupération de la météo…</p>
@@ -79,13 +92,14 @@
             </div>
             <div id="duration-block">
               <span class="metric-label">
-                Durée idéale
+                <span id="duration-label-text">Durée idéale</span>
                 <button id="duration-help-btn" class="info-btn" type="button" aria-label="Comment cette durée est calculée ?">ⓘ</button>
               </span>
               <span id="decision-duration" class="metric-value">—</span>
             </div>
           </div>
           <p class="metric-label">Confiance : <span id="decision-confidence">—</span></p>
+          <p id="regime-note" class="muted" hidden></p>
 
           <h4>Pourquoi ?</h4>
           <ul id="decision-reasons" class="reasons-list"></ul>
@@ -93,7 +107,7 @@
           <p id="forecast-advice" class="forecast-advice" hidden></p>
 
           <div id="cooling-estimate" class="cooling-estimate" hidden>
-            <p class="metric-label">Baisse estimée</p>
+            <p class="metric-label" id="cooling-estimate-label">Baisse estimée</p>
             <p id="cooling-estimate-text">—</p>
           </div>
         </div>
@@ -216,6 +230,11 @@
             <tbody id="night-forecast-body"></tbody>
           </table>
         </div>
+
+        <div id="cooling-not-applicable-card" class="card" hidden>
+          <h4>🌙 Rafraîchissement</h4>
+          <p id="cooling-not-applicable-text" class="muted">—</p>
+        </div>
       </div>
 
       <button id="back-to-input-btn" class="btn-secondary" type="button">Retour</button>
@@ -250,12 +269,19 @@
       <tr><td>40 à 64</td><td>🟡 Attendre</td></tr>
       <tr><td>&lt; 40</td><td>🔴 Fermer</td></tr>
     </table>
-    <p class="muted">La durée idéale varie de 5 à 45 min selon le score. La confiance reflète la distance aux seuils : proche d'un seuil, la recommandation pourrait basculer avec de petites variations.</p>
+    <p class="muted">Le statut et ce score sont toujours calculés ainsi, été comme hiver (l'humidité seule peut justifier d'ouvrir même s'il fait frais dehors).</p>
+    <p>La <strong>durée affichée</strong> dépend en revanche du contexte, comparé à vos cibles "Confort souhaité" :</p>
+    <ul>
+      <li><strong>Rafraîchir</strong> : l'intérieur dépasse la cible et l'extérieur est plus frais — il y a une vraie baisse de température à chercher. Durée de 5 à 45 min selon le score.</li>
+      <li><strong>Aération courte</strong> : cible déjà atteinte, ou température extérieure entre les deux cibles (il fait déjà bon dehors) — pas de température à chasser, juste le temps nécessaire pour renouveler l'air de la pièce (calculé à partir de "Ma pièce" si configurée, sinon estimation générique).</li>
+    </ul>
+    <p class="muted">La confiance reflète la distance aux seuils de score : proche d'un seuil, la recommandation pourrait basculer avec de petites variations.</p>
     <button id="score-help-close-btn" class="btn-primary" type="button">Fermer</button>
   </dialog>
 
   <dialog id="night-help-dialog" class="help-dialog">
     <h3>Comment est calculée cette fenêtre ?</h3>
+    <p class="muted">Cette estimation n'apparaît que dans le régime "Rafraîchir" (voir l'aide de l'indice de confort) : elle vise à faire baisser la température de la pièce vers votre cible, ce qui n'a de sens que si l'intérieur la dépasse encore et que l'extérieur est plus frais.</p>
     <p>L'appli parcourt les prévisions météo des prochaines 24h pour trouver :</p>
     <ul>
       <li><strong>Ouverture</strong> : la première heure où l'extérieur passe sous votre température intérieure actuelle.</li>

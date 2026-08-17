@@ -373,8 +373,14 @@ button {
   font-weight: 600;
 }
 
-.night-cooling-card h4 {
+.night-cooling-card h4,
+#cooling-not-applicable-card h4 {
   margin: 0 0 6px;
+}
+
+#regime-note {
+  margin: 4px 0 0;
+  text-align: left;
 }
 
 .night-forecast-table {
